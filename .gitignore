@@ -46,3 +46,6 @@ Makefile
 *.log
 *.tmp
 /tmp/
+
+# CodeQL
+_codeql_*/
