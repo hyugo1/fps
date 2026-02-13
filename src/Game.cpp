@@ -71,30 +71,8 @@ void Game::updateEnemies(float deltaTime) {
 }
 
 void Game::checkCollisions() {
-    if (!player || !player->isAlive()) return;
-
-    Vector3 playerPos = player->getPosition();
-    Vector3 forward = player->getCamera().getForward();
-
-    // Simple raycast for shooting
-    for (auto& enemy : enemies) {
-        if (!enemy->isAlive() || !enemy->isActive()) continue;
-
-        Vector3 toEnemy = enemy->getPosition() - playerPos;
-        float distance = toEnemy.length();
-
-        if (distance > 0) {
-            toEnemy = toEnemy.normalize();
-
-            // Calculate dot product to check if enemy is in front
-            float dot = forward.x * toEnemy.x + forward.y * toEnemy.y + forward.z * toEnemy.z;
-
-            // If enemy is roughly in front (within cone)
-            if (dot > 0.9f && distance < 20.0f) {
-                // Enemy is hit - could be improved with proper raycasting
-            }
-        }
-    }
+    // Placeholder for collision detection
+    // Would implement proper collision detection between player and level geometry
 }
 
 float Game::calculateDeltaTime() {
@@ -143,15 +121,7 @@ void Game::update() {
     }
 }
 
-void Game::processInput() {
-    // Placeholder for input processing
-    // In a real game, this would handle keyboard/mouse input
-}
 
-void Game::render() {
-    // Placeholder for rendering
-    // In a real game, this would render the 3D scene
-}
 
 void Game::run() {
     initialize();

@@ -27,8 +27,6 @@ public:
 
     void initialize();
     void update();
-    void processInput();
-    void render();
     void run();
     void cleanup();
 
