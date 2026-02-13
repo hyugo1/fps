@@ -1,6 +1,10 @@
 #include "Camera.h"
 #include <cmath>
 
+namespace {
+    constexpr float MAX_PITCH_RADIANS = 1.5f;
+}
+
 Camera::Camera() : position(0, 0, 0), yaw(0.0f), pitch(0.0f) {
     updateVectors();
 }
@@ -39,9 +43,8 @@ void Camera::rotate(float deltaYaw, float deltaPitch) {
     pitch += deltaPitch;
 
     // Clamp pitch to prevent camera flipping
-    const float maxPitch = 1.5f;
-    if (pitch > maxPitch) pitch = maxPitch;
-    if (pitch < -maxPitch) pitch = -maxPitch;
+    if (pitch > MAX_PITCH_RADIANS) pitch = MAX_PITCH_RADIANS;
+    if (pitch < -MAX_PITCH_RADIANS) pitch = -MAX_PITCH_RADIANS;
 
     updateVectors();
 }

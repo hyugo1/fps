@@ -1,6 +1,10 @@
 #include "Enemy.h"
 #include "Player.h"
 
+namespace {
+    constexpr float MIN_MOVE_DISTANCE = 0.1f;
+}
+
 Enemy::Enemy() : position(0, 0, 0), health(50.0f), maxHealth(50.0f),
                  speed(2.0f), damage(10.0f), active(true) {}
 
@@ -14,7 +18,7 @@ void Enemy::moveTowards(const Vector3& target, float deltaTime) {
     Vector3 direction = target - position;
     float distance = direction.length();
 
-    if (distance > 0.1f) {
+    if (distance > MIN_MOVE_DISTANCE) {
         direction = direction.normalize();
         position = position + direction * speed * deltaTime;
     }

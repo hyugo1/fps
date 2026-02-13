@@ -5,6 +5,11 @@
 #include <random>
 #include <thread>
 
+namespace {
+    constexpr float ENEMY_ATTACK_RANGE = 2.0f;
+    constexpr int TICK_DELAY_MS = 500;
+}
+
 Game::Game() : running(false), score(0), wave(1) {}
 
 Game::~Game() {
@@ -64,7 +69,7 @@ void Game::updateEnemies(float deltaTime) {
         Vector3 diff = enemy->getPosition() - playerPos;
         float distance = diff.length();
 
-        if (distance < 2.0f) {
+        if (distance < ENEMY_ATTACK_RANGE) {
             enemy->attack(*player);
         }
     }
@@ -151,7 +156,7 @@ void Game::run() {
         }
 
         // Small delay to simulate game tick
-        std::chrono::milliseconds delay(500);
+        std::chrono::milliseconds delay(TICK_DELAY_MS);
         std::this_thread::sleep_for(delay);
     }
 
