@@ -6,6 +6,7 @@
 #include <vector>
 #include "Enemy.h"
 #include <SDL2/SDL.h>
+#include "Entity.h"
 
 class Game {
     std::vector<Enemy> enemies;
@@ -25,8 +26,8 @@ class Game {
         SDL_Renderer* renderer;
         bool running;
         Uint32 lastTime;
-        float playerX;
-        float playerY;
+        
+        Entity player;
 
         int screenWidth;
         int screenHeight;
@@ -42,7 +43,7 @@ class Game {
 
         void DrawMap();
         void drawTile(int x, int y);
-        bool detectCollision(float x, float y);
+        bool detectCollision(const Entity& entity, float nextX, float nextY);
         double clamp(double a, double minimum, double maximum);
 };
 

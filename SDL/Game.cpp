@@ -5,6 +5,8 @@
 #include <cmath>
 #include <vector>
 #include "Enemy.h"
+#include "Entity.h"
+#include "Config.h"
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -19,10 +21,12 @@ Game::Game() {
     cameraX = screenWidth / 2;
     cameraY = screenHeight / 2;
 
-    playerX = screenWidth / 2;
-    playerY = screenHeight / 2;
+    player.x = screenWidth / 2;
+    player.y = screenHeight / 2;
+    player.width = PLAYER_SIZE;
+    player.height = PLAYER_SIZE;
 
-    tileSize = 50;
+    tileSize = TILE_SIZE;
 
     //enemies
     enemies.push_back(Enemy());
@@ -88,13 +92,14 @@ void Game::drawTile(int x, int y) {
 }
 
 
-bool Game::detectCollision(float x, float y) {
-    int playerSize = 50;
+bool Game::detectCollision(const Entity& entity, float nextX, float nextY) {
+    int x = nextX;
+    int y = nextY;
 
     int leftTile   = (int)(x / tileSize);
-    int rightTile  = (int)((x + playerSize - 1) / tileSize);
+    int rightTile  = (int)((x + entity.width - 1) / tileSize);
     int topTile    = (int)(y / tileSize);
-    int bottomTile = (int)((y + playerSize - 1) / tileSize);
+    int bottomTile = (int)((y + entity.height - 1) / tileSize);
 
     // Check each corner
     if(map[topTile * mapWidth + leftTile] == 1) return false;
@@ -105,15 +110,11 @@ bool Game::detectCollision(float x, float y) {
     return true;
 }
 
-bool checkPlayerEnemyCollision(float playerX, float playerY, Enemy& enemy) {
-    float enemyX, enemyY;
-    enemy.getEnemyPosition(enemyX, enemyY);
-    float size = 50.0f;
-    if (playerX < enemyX + size && playerX + size > enemyX &&
-        playerY < enemyY + size && playerY + size > enemyY) {
-        return true;
-    }
-    return false;
+bool AABB(const Entity& a, const Entity& b) {
+    return (a.x < b.x + b.width &&
+            a.x + a.width > b.x &&
+            a.y < b.y + b.height &&
+            a.y + a.height > b.y);
 }
 
 bool Game::Init() {
@@ -191,8 +192,8 @@ void Game::Update(float deltaTime) {
     //200pixels per second
     float speed = 200.0f;
 
-    cameraX = playerX - screenWidth / 2;
-    cameraY = playerY - screenHeight / 2;
+    cameraX = player.x - screenWidth / 2;
+    cameraY = player.y - screenHeight / 2;
 
     int maxCameraX = mapWidth * tileSize - screenWidth;
     int maxCameraY = mapHeight * tileSize - screenHeight;
@@ -200,29 +201,31 @@ void Game::Update(float deltaTime) {
     if(cameraX > maxCameraX) cameraX = maxCameraX;
     if(cameraY > maxCameraY) cameraY = maxCameraY;
 
-    float nextX = playerX + dx * speed * deltaTime;
-    float nextY = playerY + dy * speed * deltaTime;
+    float nextX = player.x + dx * speed * deltaTime;
+    float nextY = player.y + dy * speed * deltaTime;
     
     // X collision
-    if(detectCollision(nextX, playerY))
-        playerX = nextX;
-    else
-        nextX -= 0.1f;
+    if(detectCollision(player, nextX, player.y))
+        player.x = nextX;
+    // else
+    //     nextX -= 0.1f;
     
     // Y collision
-    if(detectCollision(playerX, nextY))
-        playerY = nextY;
-    else
-        nextY -= 0.1f;
-
+    if(detectCollision(player, player.x, nextY))
+        player.y = nextY;
+    // else
+    //     nextY -= 0.1f;
 
     for (auto &e : enemies) {
-        if (checkPlayerEnemyCollision(playerX, playerY, e))
-        {
+        Entity enemyBody = e.getBody();
+        if (AABB(player, enemyBody)) {
             running = false;
         }
     }
 
+    // top left corner is the coords for the camera
+
+    // clamp keeps the view inside the world.
     cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
     cameraY = clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
 
@@ -246,9 +249,9 @@ void Game::Render() {
     DrawMap();
     //draw player
     SDL_Rect playerRect = { 
-        (int)(playerX - cameraX), 
-        (int)(playerY - cameraY), 
-        50, 50 
+        (int)(player.x - cameraX), 
+        (int)(player.y - cameraY), 
+        (int)player.width, (int)player.height
     };
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &playerRect);
