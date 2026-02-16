@@ -20,7 +20,8 @@ class Game {
         void Update(float deltaTime);
         void Render();
         void Clean();
-
+        void SpawnEnemies(int count);
+        
     private:
         SDL_Window* window;
         SDL_Renderer* renderer;

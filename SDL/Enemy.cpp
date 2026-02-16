@@ -8,14 +8,16 @@
 #include "Config.h"
 
 // ---------------- Constructor ----------------
-Enemy::Enemy() {
-    body.x = 100;
-    body.y = 100;
+Enemy::Enemy(float startX, float startY, EnemyType type) {
+    body.x = startX;
+    body.y = startY;
     body.width = PLAYER_SIZE;
     body.height = PLAYER_SIZE;
     hitpoint = 100;
     tileSize = TILE_SIZE;
-    directionX = 1; 
+    directionX = 1;
+    directionY = 1;
+    character = type;
 }
 
 float Enemy::getX() const {
@@ -48,19 +50,52 @@ bool Enemy::detectCollision(float x, float y, int map[], int mapWidth, int mapHe
     return false; // no collision
 }
 
-void Enemy::Update(float deltaTime, int map[], int mapWidth, int mapHeight) {
-    //direction vector
-    //move right initially
-    // float dx = 1; 
-    // float dy = 0;
-    
-    float speed = 100.0f; // pixels per second
+void Enemy::Update(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY) {
+    if (character == horizontalEnemy) {
+        HorizontalMove(deltaTime, map, mapWidth, mapHeight);
+    }
+    if (character == verticalEnemy) {
+        VerticalMove(deltaTime, map, mapWidth, mapHeight);
+    }
+    if (character == smartEnemy) {
+        SmartEnemy(deltaTime, map, mapWidth, mapHeight, playerX, playerY);
+    }
+}
+
+void Enemy::HorizontalMove(float deltaTime, int map[], int mapWidth, int mapHeight) {
+    float speed = 125.0f; // pixels per second
 
     float nextX = body.x + directionX * speed * deltaTime;
     if (detectCollision(nextX, body.y, map, mapWidth, mapHeight)) {
         directionX = -directionX; // reverse
     } else {
         body.x = nextX;
+    }
+}
+
+void Enemy::VerticalMove(float deltaTime, int map[], int mapWidth, int mapHeight) {
+    float speed = 125.0f; // pixels per second
+
+    float nextY = body.y + directionY * speed * deltaTime;
+    if (detectCollision(body.x, nextY, map, mapWidth, mapHeight)) {
+        directionY = -directionY; // reverse
+    } else {
+        body.y = nextY;
+    }
+}
+
+void Enemy::SmartEnemy(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY) {
+    float speed = 125.0f; 
+    float dx = playerX - body.x;
+    float dy = playerY - body.y;
+    float distance = sqrt(dx*dx + dy*dy);
+    if(distance < 200) { 
+        dx /= distance;
+        dy /= distance;
+        float nextX = body.x + dx * speed * deltaTime;
+        float nextY = body.y + dy * speed * deltaTime;
+        if(!detectCollision(nextX, body.y, map, mapWidth, mapHeight)) body.x = nextX;
+        if(!detectCollision(body.x, nextY, map, mapWidth, mapHeight)) body.y = nextY;
     }
 }
 

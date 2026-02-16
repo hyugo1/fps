@@ -28,30 +28,79 @@ Game::Game() {
 
     tileSize = TILE_SIZE;
 
-    //enemies
-    enemies.push_back(Enemy());
-
     //map
-    int tempMap[mapWidth * mapHeight] = {
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-    };
-    for(int i = 0; i < (mapWidth * mapHeight); i++)
-        map[i] = tempMap[i];
+    // int tempMap[mapWidth * mapHeight] = {
+    //     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    //     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    // };
+    // for(int i = 0; i < (mapWidth * mapHeight); i++)
+    //     map[i] = tempMap[i];
+
+
+    for(int y = 0; y < mapHeight; y++) {
+        for(int x = 0; x < mapWidth; x++) {
+            if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
+                map[y * mapWidth + x] = 1; // border wall
+            else if(rand() % 10 == 0)
+                rand() % 10 == 0 ? map[y * mapWidth + x] = 1 : map[y * mapWidth + x] = 0;
+                // map[y * mapWidth + x] = 1;
+            else
+                map[y * mapWidth + x] = 0; // floor
+        }
+    }
+
+    //enemies
+    SpawnEnemies(5);
+    
+}
+
+void Game::SpawnEnemies(int count) {
+    srand(SDL_GetTicks()); // seed random
+
+    const float MIN_DISTANCE = 200.0f;
+
+    for(int i = 0; i < count; i++) {
+
+        float spawnX, spawnY;
+        bool collidesWithWall;
+        float distance;
+
+        do {
+            spawnX = rand() % (mapWidth * TILE_SIZE);
+            spawnY = rand() % (mapHeight * TILE_SIZE);
+
+            // Check wall collision
+            int tileX = spawnX / TILE_SIZE;
+            int tileY = spawnY / TILE_SIZE;
+
+            collidesWithWall = (map[tileY * mapWidth + tileX] == 1);
+
+            // Check distance from player
+            float dx = spawnX - player.x;
+            float dy = spawnY - player.y;
+            distance = sqrt(dx*dx + dy*dy);
+
+        } while(collidesWithWall || distance < MIN_DISTANCE);
+
+        Enemy::EnemyType type =
+            static_cast<Enemy::EnemyType>(rand() % 3);
+
+        enemies.push_back(Enemy(spawnX, spawnY, type));
+    }
 }
 
 void Game::DrawMap() {
@@ -224,13 +273,13 @@ void Game::Update(float deltaTime) {
     }
 
     // top left corner is the coords for the camera
-
     // clamp keeps the view inside the world.
     cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
     cameraY = clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
-
-    for (auto &e : enemies)
-        e.Update(deltaTime, map, mapWidth, mapHeight);
+    
+    for (auto &e : enemies) {
+        e.Update(deltaTime, map, mapWidth, mapHeight, player.x, player.y);
+    }
 
 }
 
