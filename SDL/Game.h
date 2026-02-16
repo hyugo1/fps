@@ -3,10 +3,12 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <vector>
+#include "Enemy.h"
 #include <SDL2/SDL.h>
 
 class Game {
-    // std::vector<Enemy> enemies;
+    std::vector<Enemy> enemies;
 
     public:
         Game();

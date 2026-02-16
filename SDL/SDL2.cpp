@@ -1,7 +1,7 @@
 // SDL2.cpp 
 
 #include "Game.h"
-// #include "Enemy.h"
+#include "Enemy.h"
 #include <SDL2/SDL.h>
 
 int main(int argc, char* argv[]) {

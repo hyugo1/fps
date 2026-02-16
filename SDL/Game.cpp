@@ -4,8 +4,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <vector>
-// #include "Enemy.h"
-// std::vector<Enemy> enemies;
+#include "Enemy.h"
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -25,6 +24,10 @@ Game::Game() {
 
     tileSize = 50;
 
+    //enemies
+    enemies.push_back(Enemy());
+
+    //map
     int tempMap[mapWidth * mapHeight] = {
         1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
         1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -100,6 +103,17 @@ bool Game::detectCollision(float x, float y) {
     if(map[bottomTile * mapWidth + rightTile] == 1) return false;
 
     return true;
+}
+
+bool checkPlayerEnemyCollision(float playerX, float playerY, Enemy& enemy) {
+    float enemyX, enemyY;
+    enemy.getEnemyPosition(enemyX, enemyY);
+    float size = 50.0f;
+    if (playerX < enemyX + size && playerX + size > enemyX &&
+        playerY < enemyY + size && playerY + size > enemyY) {
+        return true;
+    }
+    return false;
 }
 
 bool Game::Init() {
@@ -201,8 +215,20 @@ void Game::Update(float deltaTime) {
     else
         nextY -= 0.1f;
 
+
+    for (auto &e : enemies) {
+        if (checkPlayerEnemyCollision(playerX, playerY, e))
+        {
+            running = false;
+        }
+    }
+
     cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
     cameraY = clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
+
+    for (auto &e : enemies)
+        e.Update(deltaTime, map, mapWidth, mapHeight);
+
 }
 
 double Game::clamp(double a, double minimum, double maximum) {
@@ -226,6 +252,10 @@ void Game::Render() {
     };
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &playerRect);
+
+    //draw enemies
+    for (auto &e : enemies)
+        e.Render(cameraX, cameraY, renderer);
 
     //update screen, swaps the back buffer to the screen
     //present
