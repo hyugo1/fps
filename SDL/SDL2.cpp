@@ -18,6 +18,13 @@ class Game {
         Uint32 lastTime;
         float playerX;
         float playerY;
+
+        // Map
+        static const int mapWidth = 16;
+        static const int mapHeight = 16;
+        int map[mapWidth * mapHeight];
+
+        void DrawMap();
     };
 
 Game::Game() {
@@ -29,7 +36,43 @@ Game::Game() {
     //player position
     playerX = 400;
     playerY = 300;
+    
+    int tempMap[mapWidth * mapHeight] = {
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    };
+    for(int i = 0; i < (mapWidth * mapHeight); i++)
+        map[i] = tempMap[i];
 }
+
+void Game::DrawMap() {
+    int tileSize = 50;
+
+    float cameraX = playerX - 400;
+    float cameraY = playerY - 300;
+
+    for (int y = 0; y < mapHeight; y++) {
+        for (int x = 0; x < mapWidth; x++) {
+            int tile = map[y * mapWidth + x];
+
+            if (tile == 0) continue;
+            
+            SDL_Rect rect = {
+                (int)(x * tileSize - cameraX),
+                (int)(y * tileSize - cameraY),
+                tileSize,
+                tileSize
+            };
+
+            SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+};
 
 
 bool Game::Init() {
@@ -118,11 +161,12 @@ void Game::Render() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    //draw
+    //draw map
+    DrawMap();
+    //draw player
     SDL_Rect playerRect = { (int)playerX, (int)playerY, 50, 50 };
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &playerRect);
-
 
     //update screen, swaps the back buffer to the screen
     //present
