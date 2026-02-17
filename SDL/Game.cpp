@@ -8,6 +8,8 @@
 #include "Enemy.h"
 #include "Entity.h"
 #include "Config.h"
+#include "Menu.h"  
+#include <SDL2/SDL.h>
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -15,51 +17,21 @@ Game::Game() {
     lastTime = 0;
     window = nullptr;
     renderer = nullptr;
-
     currentState = MENU;
     currentLevel = 1;
-
     playerHP = 30;
     playerInvulnTimer = 0.0f;
-
     shootCooldown = 0.0f;
-
     screenHeight = 600;
     screenWidth = 800;
-
     cameraX = screenWidth / 2;
     cameraY = screenHeight / 2;
-
     player.x = screenWidth / 2;
     player.y = screenHeight / 2;
     player.width = PLAYER_SIZE;
     player.height = PLAYER_SIZE;
-
     tileSize = TILE_SIZE;
-
     //map
-    // int tempMap[mapWidth * mapHeight] = {
-    //     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    //     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-    // };
-    // for(int i = 0; i < (mapWidth * mapHeight); i++)
-    //     map[i] = tempMap[i];
-
-
     for(int y = 0; y < mapHeight; y++) {
         for(int x = 0; x < mapWidth; x++) {
             if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
@@ -70,43 +42,31 @@ Game::Game() {
                 map[y * mapWidth + x] = 0; // floor
         }
     }
-
     //enemies
     srand(time(nullptr));
     SpawnEnemies(5);
-    
 }
 
 void Game::SpawnEnemies(int count) {
-
     const float MIN_DISTANCE = 200.0f;
-
     for(int i = 0; i < count; i++) {
-
         float spawnX, spawnY;
         bool collidesWithWall;
         float distance;
-
         do {
             spawnX = rand() % (mapWidth * TILE_SIZE);
             spawnY = rand() % (mapHeight * TILE_SIZE);
-
             // Check wall collision
             int tileX = spawnX / TILE_SIZE;
             int tileY = spawnY / TILE_SIZE;
-
             collidesWithWall = (map[tileY * mapWidth + tileX] == 1);
-
             // Check distance from player
             float dx = spawnX - player.x;
             float dy = spawnY - player.y;
             distance = sqrt(dx*dx + dy*dy);
-
         } while(collidesWithWall || distance < MIN_DISTANCE);
-
         Enemy::EnemyType type =
             static_cast<Enemy::EnemyType>(rand() % 3);
-
         enemies.push_back(Enemy(spawnX, spawnY, type));
     }
 }
@@ -114,10 +74,8 @@ void Game::SpawnEnemies(int count) {
 void Game::DrawMap() {
     int startX = cameraX / tileSize;
     int startY = cameraY / tileSize;
-
     int endX = (cameraX + screenWidth) / tileSize + 1;
     int endY = (cameraY + screenHeight) / tileSize + 1;
-
     for(int y = startY; y < endY; y++)
         for(int x = startX; x < endX; x++)
             drawTile(x, y);
@@ -125,10 +83,8 @@ void Game::DrawMap() {
 
 void Game::drawTile(int x, int y) {
     int tile = map[y * mapWidth + x];
-
     if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
         return;
-    
     if (tile == 1) {
         SDL_Rect rect = {
             (int)(x * tileSize - cameraX),
@@ -136,18 +92,15 @@ void Game::drawTile(int x, int y) {
             tileSize,
             tileSize
         };
-
         SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // wall = grey
         SDL_RenderFillRect(renderer, &rect);
     }
-
     if (tile == 0) {
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // dark grey floor
         SDL_RenderFillRect(renderer, &rect);
     }
 }
-
 
 bool Game::detectCollision(const Entity& entity, float nextX, float nextY) {
     int x = nextX;
@@ -200,6 +153,7 @@ bool Game::Init() {
     }
 
     running = true;
+    menu = new Menu(renderer);
     return true;
 }
 
@@ -239,8 +193,6 @@ void Game::UpdateMenu() {
     }
 }
 
-//add player movement, physics, enemy updates, bullet updates
-//deltaTime =  time since last frame
 void Game::UpdateGame(float deltaTime) {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     int playerSize = 50;
@@ -261,41 +213,29 @@ void Game::UpdateGame(float deltaTime) {
         dx -= 1;
     if (keystate[SDL_SCANCODE_D])
         dx += 1;
-
-
     float length = sqrt(dx * dx + dy * dy);
-
     if (length != 0.0f) {
         dx /= length;
         dy /= length;
     };
-
-    //200pixels per second
-    float speed = 200.0f;
-
+    float speed = 200.0f; //200pixels per second
     cameraX = player.x - screenWidth / 2;
     cameraY = player.y - screenHeight / 2;
-
     int maxCameraX = mapWidth * tileSize - screenWidth;
     int maxCameraY = mapHeight * tileSize - screenHeight;
-
     if(cameraX > maxCameraX) cameraX = maxCameraX;
     if(cameraY > maxCameraY) cameraY = maxCameraY;
-
     float nextX = player.x + dx * speed * deltaTime;
     float nextY = player.y + dy * speed * deltaTime;
-    
     // X collision
     if(detectCollision(player, nextX, player.y))
         player.x = nextX;
     // Y collision
     if(detectCollision(player, player.x, nextY))
         player.y = nextY;
-
     for (auto &e : enemies) {
         Entity enemyBody = e.getBody();
-        
-        // Check collision with player and enemy
+    // Check collision with player and enemy
     if (AABB(player, enemyBody)) {
             if (playerInvulnTimer <= 0.0f) {
                 playerHP -= 10;
@@ -307,15 +247,12 @@ void Game::UpdateGame(float deltaTime) {
     // clamp keeps the view inside the world.
     cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
     cameraY = clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
-    
     for (auto &e : enemies) {
         e.Update(deltaTime, map, mapWidth, mapHeight, player.x, player.y);
     }
-
     if (enemies.empty()) {
         currentState = LEVEL_COMPLETE;
     }
-
     if (keystate[SDL_SCANCODE_SPACE]) {
         for (auto &e : enemies) {
             if (AABB(player, e.getBody())) {
@@ -323,24 +260,18 @@ void Game::UpdateGame(float deltaTime) {
             }
         }
     }
-
     enemies.erase(
         std::remove_if(enemies.begin(), enemies.end(),
             [](Enemy &e) { return e.IsDead(); }),
         enemies.end()
     );
-
     if (playerHP <= 0) {
         currentState = GAME_OVER;
     }
-
     if (shootCooldown > 0.0f)
         shootCooldown -= deltaTime;
-
-    
     detectMouseClick();
     UpdateBullets(deltaTime);
-    
 }
 
 void Game::UpdateBullets(float deltaTime) {
@@ -376,7 +307,6 @@ void Game::UpdateBullets(float deltaTime) {
         bullets.end()
     );
 }
-
 
 void Game::detectMouseClick() {
     int mouseX, mouseY;
@@ -456,7 +386,6 @@ void Game::Render() {
     else if(currentState == GAME_OVER) {
         RenderGameOver();
     }
-
 }   
 
 void Game::RenderMenu() {
@@ -464,21 +393,19 @@ void Game::RenderMenu() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Here you would render your menu (e.g., text, buttons)
+    menu->Render("Press ENTER to Start");
 
-    //update screen
     SDL_RenderPresent(renderer);
 }
-
 
 void Game::RenderLevelComplete() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Here you would render your level complete screen (e.g., text)
+    Menu menu(renderer);
+    menu.Render("Level Complete! Press ENTER");
 
-    //update screen
     SDL_RenderPresent(renderer);
 }
 
@@ -522,8 +449,6 @@ void Game::RenderGame() {
     //update screen, swaps the back buffer to the screen
     //present
     SDL_RenderPresent(renderer);
-
-
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
 }
 
@@ -532,14 +457,15 @@ void Game::RenderGameOver() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Here you would render your game over screen (e.g., text)
+    Menu menu(renderer);
+    menu.Render("Game Over! Press ENTER");
 
-    //update screen
     SDL_RenderPresent(renderer);
 }
 
 void Game::Clean() {
     // SDL_DestroyTexture(texture);
+    delete menu;
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

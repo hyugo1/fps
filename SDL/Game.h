@@ -8,8 +8,11 @@
 #include <SDL2/SDL.h>
 #include "Entity.h"
 
+class Menu;
+
 class Game {
     std::vector<Enemy> enemies;
+    Menu* menu;
 
     public:
         enum GameState {

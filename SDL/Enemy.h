@@ -21,7 +21,6 @@ class Enemy {
         void TakeDamage(int amount);
         bool IsDead() const;
         int GetHP() const;
-        void UpdateBullets(float deltaTime);
 
     private:
         Entity body;
