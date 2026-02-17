@@ -1,9 +1,10 @@
 //Game.cpp
 
-#include "Game.h"
 #include <stdio.h>
 #include <cmath>
 #include <vector>
+#include <algorithm>
+#include "Game.h"
 #include "Enemy.h"
 #include "Entity.h"
 #include "Config.h"
@@ -14,6 +15,14 @@ Game::Game() {
     lastTime = 0;
     window = nullptr;
     renderer = nullptr;
+
+    currentState = MENU;
+    currentLevel = 1;
+
+    playerHP = 30;
+    playerInvulnTimer = 0.0f;
+
+    shootCooldown = 0.0f;
 
     screenHeight = 600;
     screenWidth = 800;
@@ -56,20 +65,19 @@ Game::Game() {
             if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
                 map[y * mapWidth + x] = 1; // border wall
             else if(rand() % 10 == 0)
-                rand() % 10 == 0 ? map[y * mapWidth + x] = 1 : map[y * mapWidth + x] = 0;
-                // map[y * mapWidth + x] = 1;
+                map[y * mapWidth + x] = 1; // random wall
             else
                 map[y * mapWidth + x] = 0; // floor
         }
     }
 
     //enemies
+    srand(time(nullptr));
     SpawnEnemies(5);
     
 }
 
 void Game::SpawnEnemies(int count) {
-    srand(SDL_GetTicks()); // seed random
 
     const float MIN_DISTANCE = 200.0f;
 
@@ -208,16 +216,40 @@ void Game::HandleEvents() {
     }
 }
 
+void Game::Update(float deltaTime) {
+    if(currentState == MENU) {
+        UpdateMenu();
+    }
+    else if(currentState == PLAYING) {
+        UpdateGame(deltaTime);
+    }
+    else if(currentState == LEVEL_COMPLETE) {
+        UpdateLevelComplete();
+    }
+    else if(currentState == GAME_OVER) {
+        UpdateGameOver();
+    }
+}
+
+void Game::UpdateMenu() {
+    // Handle menu logic (e.g., start game on key press)
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    if (keystate[SDL_SCANCODE_RETURN]) {
+        currentState = PLAYING;
+    }
+}
+
 //add player movement, physics, enemy updates, bullet updates
 //deltaTime =  time since last frame
-void Game::Update(float deltaTime) {
+void Game::UpdateGame(float deltaTime) {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     int playerSize = 50;
-
     //direction vector
     float dx = 0.0f;
     float dy = 0.0f;
-
+    
+    if (playerInvulnTimer > 0.0f)
+        playerInvulnTimer -= deltaTime;
     // (0,0) is the top left corner
     // x goes right
     // y goes down
@@ -256,22 +288,21 @@ void Game::Update(float deltaTime) {
     // X collision
     if(detectCollision(player, nextX, player.y))
         player.x = nextX;
-    // else
-    //     nextX -= 0.1f;
-    
     // Y collision
     if(detectCollision(player, player.x, nextY))
         player.y = nextY;
-    // else
-    //     nextY -= 0.1f;
 
     for (auto &e : enemies) {
         Entity enemyBody = e.getBody();
-        if (AABB(player, enemyBody)) {
-            running = false;
+        
+        // Check collision with player and enemy
+    if (AABB(player, enemyBody)) {
+            if (playerInvulnTimer <= 0.0f) {
+                playerHP -= 10;
+                playerInvulnTimer = 1.0f;
+            }
         }
     }
-
     // top left corner is the coords for the camera
     // clamp keeps the view inside the world.
     cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
@@ -281,6 +312,129 @@ void Game::Update(float deltaTime) {
         e.Update(deltaTime, map, mapWidth, mapHeight, player.x, player.y);
     }
 
+    if (enemies.empty()) {
+        currentState = LEVEL_COMPLETE;
+    }
+
+    if (keystate[SDL_SCANCODE_SPACE]) {
+        for (auto &e : enemies) {
+            if (AABB(player, e.getBody())) {
+                e.TakeDamage(25);
+            }
+        }
+    }
+
+    enemies.erase(
+        std::remove_if(enemies.begin(), enemies.end(),
+            [](Enemy &e) { return e.IsDead(); }),
+        enemies.end()
+    );
+
+    if (playerHP <= 0) {
+        currentState = GAME_OVER;
+    }
+
+    if (shootCooldown > 0.0f)
+        shootCooldown -= deltaTime;
+
+    
+    detectMouseClick();
+    UpdateBullets(deltaTime);
+    
+}
+
+void Game::UpdateBullets(float deltaTime) {
+    // Update bullets
+    for (auto &b : bullets) {
+        b.x += b.dx * b.speed * deltaTime;
+        b.y += b.dy * b.speed * deltaTime;
+    }
+    // Remove bullets that hit walls
+    bullets.erase(
+        std::remove_if(bullets.begin(), bullets.end(),
+            [&](Bullet &b) {
+                Entity bulletEntity{b.x, b.y, 5, 5};
+                return !detectCollision(bulletEntity, b.x, b.y);
+            }),
+        bullets.end()
+    );
+    // Bullet–Enemy collision
+    for (auto &b : bullets) {
+        Entity bulletEntity{b.x, b.y, 5, 5};
+
+        for (auto &e : enemies) {
+            if (AABB(bulletEntity, e.getBody())) {
+                e.TakeDamage(20);
+                b.x = -1000; // mark bullet for deletion
+            }
+        }
+    }
+    // Remove bullets marked for deletion
+    bullets.erase(
+        std::remove_if(bullets.begin(), bullets.end(),
+            [](Bullet &b) { return b.x < 0; }),
+        bullets.end()
+    );
+}
+
+
+void Game::detectMouseClick() {
+    int mouseX, mouseY;
+    Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
+
+    if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+        if (shootCooldown <= 0.0f) {
+
+            // Convert mouse from screen space to world space
+            float worldMouseX = mouseX + cameraX;
+            float worldMouseY = mouseY + cameraY;
+
+            float dirX = worldMouseX - player.x;
+            float dirY = worldMouseY - player.y;
+
+            float length = sqrt(dirX * dirX + dirY * dirY);
+
+            if (length != 0) {
+                dirX /= length;
+                dirY /= length;
+            }
+
+            Bullet b;
+            b.x = player.x + player.width / 2;
+            b.y = player.y + player.height / 2;
+            b.dx = dirX;
+            b.dy = dirY;
+            b.speed = 400.0f;
+
+            bullets.push_back(b);
+
+            shootCooldown = 0.3f; // 0.3 sec between shots
+        }
+    }
+}
+
+void Game::UpdateLevelComplete() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    if (keystate[SDL_SCANCODE_RETURN]) {
+        enemies.clear();
+        SpawnEnemies(5 + currentLevel); // Spawn more enemies for next level
+        currentState = PLAYING;
+    }
+}
+
+void Game::UpdateGameOver() {
+    // Handle game over logic (e.g., show message, wait for input)
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    if (keystate[SDL_SCANCODE_RETURN]) {
+        // Reset game state
+        player.x = screenWidth / 2;
+        player.y = screenHeight / 2;
+        enemies.clear();
+        SpawnEnemies(5);
+        currentState = PLAYING;
+        playerHP = 100;
+        playerInvulnTimer = 0.0f;
+    }
 }
 
 double Game::clamp(double a, double minimum, double maximum) {
@@ -290,6 +444,45 @@ double Game::clamp(double a, double minimum, double maximum) {
 }
 
 void Game::Render() {
+    if(currentState == MENU) {
+        RenderMenu();
+    }
+    else if(currentState == PLAYING) {
+        RenderGame();
+    }
+    else if(currentState == LEVEL_COMPLETE) {
+        RenderLevelComplete();
+    }
+    else if(currentState == GAME_OVER) {
+        RenderGameOver();
+    }
+
+}   
+
+void Game::RenderMenu() {
+    //clear screen to black
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // Here you would render your menu (e.g., text, buttons)
+
+    //update screen
+    SDL_RenderPresent(renderer);
+}
+
+
+void Game::RenderLevelComplete() {
+    //clear screen to black
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // Here you would render your level complete screen (e.g., text)
+
+    //update screen
+    SDL_RenderPresent(renderer);
+}
+
+void Game::RenderGame() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -309,11 +502,41 @@ void Game::Render() {
     for (auto &e : enemies)
         e.Render(cameraX, cameraY, renderer);
 
+    if (playerInvulnTimer > 0.0f)
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
+    else
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+
+    for (auto &b : bullets) {
+        SDL_Rect rect = {
+            (int)(b.x - cameraX),
+            (int)(b.y - cameraY),
+            5,
+            5
+        };
+        SDL_RenderFillRect(renderer, &rect);
+    }
     //update screen, swaps the back buffer to the screen
     //present
     SDL_RenderPresent(renderer);
+
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
 }
 
+void Game::RenderGameOver() {
+    //clear screen to black
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // Here you would render your game over screen (e.g., text)
+
+    //update screen
+    SDL_RenderPresent(renderer);
+}
 
 void Game::Clean() {
     // SDL_DestroyTexture(texture);

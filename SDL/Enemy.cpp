@@ -32,6 +32,18 @@ const Entity& Enemy::getBody() const {
     return body;
 }
 
+void Enemy::TakeDamage(int amount) {
+    hitpoint -= amount;
+}
+
+bool Enemy::IsDead() const {
+    return hitpoint <= 0;
+}
+
+int Enemy::GetHP() const {
+    return hitpoint;
+}
+
 bool Enemy::detectCollision(float x, float y, int map[], int mapWidth, int mapHeight) {
     int leftTile   = (int)(x / TILE_SIZE);
     int rightTile  = (int)((x + body.width - 1) / TILE_SIZE);

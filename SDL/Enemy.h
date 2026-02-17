@@ -18,6 +18,10 @@ class Enemy {
         float getX() const;
         float getY() const;
         const Entity& getBody() const;
+        void TakeDamage(int amount);
+        bool IsDead() const;
+        int GetHP() const;
+        void UpdateBullets(float deltaTime);
 
     private:
         Entity body;

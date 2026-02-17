@@ -12,15 +12,44 @@ class Game {
     std::vector<Enemy> enemies;
 
     public:
+        enum GameState {
+            MENU,
+            PLAYING,
+            LEVEL_COMPLETE,
+            GAME_OVER // wont kill the game
+        };
+        GameState currentState;
+        int currentLevel;
+
+        int playerHP;
+        float playerInvulnTimer;
+
         Game();
 
         bool Init();
         bool IsRunning();
         void HandleEvents();
         void Update(float deltaTime);
+        void UpdateMenu();
+        void UpdateGame(float deltaTime);
+        void UpdateLevelComplete();
+        void UpdateGameOver();
         void Render();
         void Clean();
         void SpawnEnemies(int count);
+        void RenderMenu();
+        void RenderGame();
+        void RenderLevelComplete();
+        void RenderGameOver();
+        // srand(time(nullptr));
+        struct Bullet {
+            float x, y;
+            float dx, dy;
+            float speed;
+        };
+
+        std::vector<Bullet> bullets;
+        float shootCooldown;
         
     private:
         SDL_Window* window;
@@ -42,6 +71,8 @@ class Game {
         static const int mapHeight = 16;
         int map[mapWidth * mapHeight];
 
+        void detectMouseClick();
+        void UpdateBullets(float deltaTime);
         void DrawMap();
         void drawTile(int x, int y);
         bool detectCollision(const Entity& entity, float nextX, float nextY);
