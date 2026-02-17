@@ -5,6 +5,7 @@
 
 #include <SDL2/SDL.h>
 #include "Entity.h"
+#include <functional>
 
 class Enemy {
     public:
@@ -13,10 +14,10 @@ class Enemy {
         
         Enemy(float startX, float startY, EnemyType type);
 
-        void Update(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY);
+        void Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);
         void Render(float cameraX, float cameraY, SDL_Renderer* renderer);
-        float getX() const;
-        float getY() const;
+        float GetX() const;
+        float GetY() const;
         const Entity& getBody() const;
         void TakeDamage(int amount);
         bool IsDead() const;
@@ -28,10 +29,9 @@ class Enemy {
         float directionY;
         double hitpoint;
         int tileSize;
-        bool detectCollision(float x, float y, int map[], int mapWidth, int mapHeight);
-        void HorizontalMove(float deltaTime, int map[], int mapWidth, int mapHeight);
-        void VerticalMove(float deltaTime, int map[], int mapWidth, int mapHeight);
-        void SmartEnemy(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY);
+        void HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
+        void VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
+        void SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);
 };
 
 #endif // enemy

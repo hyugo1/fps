@@ -74,12 +74,12 @@ class Game {
         static const int mapHeight = 16;
         int map[mapWidth * mapHeight];
 
-        void detectMouseClick();
+        void DetectMouseClick();
         void UpdateBullets(float deltaTime);
         void DrawMap();
-        void drawTile(int x, int y);
-        bool detectCollision(const Entity& entity, float nextX, float nextY);
-        double clamp(double a, double minimum, double maximum);
+        void DrawTile(int x, int y);
+        bool DetectCollision(const Entity& entity, float nextX, float nextY);
+        double Clamp(double a, double minimum, double maximum);
 };
 
 #endif // GAME_H

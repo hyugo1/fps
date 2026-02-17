@@ -20,11 +20,11 @@ Enemy::Enemy(float startX, float startY, EnemyType type) {
     character = type;
 }
 
-float Enemy::getX() const {
+float Enemy::GetX() const {
     return body.x;
 }
 
-float Enemy::getY() const {
+float Enemy::GetY() const {
     return body.y;
 }
 
@@ -44,59 +44,41 @@ int Enemy::GetHP() const {
     return hitpoint;
 }
 
-bool Enemy::detectCollision(float x, float y, int map[], int mapWidth, int mapHeight) {
-    int leftTile   = (int)(x / TILE_SIZE);
-    int rightTile  = (int)((x + body.width - 1) / TILE_SIZE);
-    int topTile    = (int)(y / TILE_SIZE);
-    int bottomTile = (int)((y + body.height - 1) / TILE_SIZE);
-
-    for (int tileY = topTile; tileY <= bottomTile; tileY++) {
-        for (int tileX = leftTile; tileX <= rightTile; tileX++) {
-            if (tileX >= 0 && tileX < mapWidth && tileY >= 0 && tileY < mapHeight) {
-                if (map[tileY * mapWidth + tileX] == 1) {
-                    return true; // collision
-                }
-            }
-        }
-    }
-    return false; // no collision
-}
-
-void Enemy::Update(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY) {
+void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
     if (character == horizontalEnemy) {
-        HorizontalMove(deltaTime, map, mapWidth, mapHeight);
+        HorizontalMove(deltaTime, collisionFunc);
     }
     if (character == verticalEnemy) {
-        VerticalMove(deltaTime, map, mapWidth, mapHeight);
+        VerticalMove(deltaTime, collisionFunc);
     }
     if (character == smartEnemy) {
-        SmartEnemy(deltaTime, map, mapWidth, mapHeight, playerX, playerY);
+        SmartEnemy(deltaTime, collisionFunc, playerX, playerY);
     }
 }
 
-void Enemy::HorizontalMove(float deltaTime, int map[], int mapWidth, int mapHeight) {
+void Enemy::HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
     float speed = 125.0f; // pixels per second
 
     float nextX = body.x + directionX * speed * deltaTime;
-    if (detectCollision(nextX, body.y, map, mapWidth, mapHeight)) {
+    if (collisionFunc(body, nextX, body.y)) {
         directionX = -directionX; // reverse
     } else {
         body.x = nextX;
     }
 }
 
-void Enemy::VerticalMove(float deltaTime, int map[], int mapWidth, int mapHeight) {
+void Enemy::VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
     float speed = 125.0f; // pixels per second
 
     float nextY = body.y + directionY * speed * deltaTime;
-    if (detectCollision(body.x, nextY, map, mapWidth, mapHeight)) {
+    if (collisionFunc(body, body.x, nextY)) {
         directionY = -directionY; // reverse
     } else {
         body.y = nextY;
     }
 }
 
-void Enemy::SmartEnemy(float deltaTime, int map[], int mapWidth, int mapHeight, float playerX, float playerY) {
+void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
     float speed = 125.0f; 
     float dx = playerX - body.x;
     float dy = playerY - body.y;
@@ -106,8 +88,8 @@ void Enemy::SmartEnemy(float deltaTime, int map[], int mapWidth, int mapHeight, 
         dy /= distance;
         float nextX = body.x + dx * speed * deltaTime;
         float nextY = body.y + dy * speed * deltaTime;
-        if(!detectCollision(nextX, body.y, map, mapWidth, mapHeight)) body.x = nextX;
-        if(!detectCollision(body.x, nextY, map, mapWidth, mapHeight)) body.y = nextY;
+        if(!collisionFunc(body, nextX, body.y)) body.x = nextX;
+        if(!collisionFunc(body, body.x, nextY)) body.y = nextY;
     }
 }
 

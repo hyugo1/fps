@@ -37,7 +37,7 @@ Game::Game() {
             if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
                 map[y * mapWidth + x] = 1; // border wall
             else if(rand() % 10 == 0)
-                map[y * mapWidth + x] = 1; // random wall
+                map[y * mapWidth + x] = 2; // random wall
             else
                 map[y * mapWidth + x] = 0; // floor
         }
@@ -57,14 +57,17 @@ void Game::SpawnEnemies(int count) {
             spawnX = rand() % (mapWidth * TILE_SIZE);
             spawnY = rand() % (mapHeight * TILE_SIZE);
             // Check wall collision
-            int tileX = spawnX / TILE_SIZE;
-            int tileY = spawnY / TILE_SIZE;
-            collidesWithWall = (map[tileY * mapWidth + tileX] == 1);
+            Entity temp; // create a temporary entity for collision checking
+            temp.x = spawnX;
+            temp.y = spawnY;
+            temp.width = PLAYER_SIZE;
+            temp.height = PLAYER_SIZE;
+            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
             // Check distance from player
             float dx = spawnX - player.x;
             float dy = spawnY - player.y;
             distance = sqrt(dx*dx + dy*dy);
-        } while(collidesWithWall || distance < MIN_DISTANCE);
+        } while(collidesWithWall || distance < MIN_DISTANCE); // ensure enemies don't spawn too close to the player or inside walls
         Enemy::EnemyType type =
             static_cast<Enemy::EnemyType>(rand() % 3);
         enemies.push_back(Enemy(spawnX, spawnY, type));
@@ -78,20 +81,15 @@ void Game::DrawMap() {
     int endY = (cameraY + screenHeight) / tileSize + 1;
     for(int y = startY; y < endY; y++)
         for(int x = startX; x < endX; x++)
-            drawTile(x, y);
+            DrawTile(x, y);
 };
 
-void Game::drawTile(int x, int y) {
+void Game::DrawTile(int x, int y) {
     int tile = map[y * mapWidth + x];
     if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
         return;
     if (tile == 1) {
-        SDL_Rect rect = {
-            (int)(x * tileSize - cameraX),
-            (int)(y * tileSize - cameraY),
-            tileSize,
-            tileSize
-        };
+        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // wall = grey
         SDL_RenderFillRect(renderer, &rect);
     }
@@ -100,26 +98,37 @@ void Game::drawTile(int x, int y) {
         SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // dark grey floor
         SDL_RenderFillRect(renderer, &rect);
     }
+    if (tile == 2) {
+        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // green for special tile
+        SDL_RenderFillRect(renderer, &rect);
+    }
 }
 
-bool Game::detectCollision(const Entity& entity, float nextX, float nextY) {
+// return true if collision, false if no collision
+bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
     int x = nextX;
     int y = nextY;
-
     int leftTile   = (int)(x / tileSize);
     int rightTile  = (int)((x + entity.width - 1) / tileSize);
     int topTile    = (int)(y / tileSize);
     int bottomTile = (int)((y + entity.height - 1) / tileSize);
 
     // Check each corner
-    if(map[topTile * mapWidth + leftTile] == 1) return false;
-    if(map[topTile * mapWidth + rightTile] == 1) return false;
-    if(map[bottomTile * mapWidth + leftTile] == 1) return false;
-    if(map[bottomTile * mapWidth + rightTile] == 1) return false;
-
-    return true;
+    for (int tileY = topTile; tileY <= bottomTile; tileY++) {
+        for (int tileX = leftTile; tileX <= rightTile; tileX++) {
+            if (tileX < 0 || tileX >= mapWidth ||
+                tileY < 0 || tileY >= mapHeight)
+                return true;
+            int tile = map[tileY * mapWidth + tileX];
+            if (tile != 0)
+                return true;
+        }
+    }
+    return false;
 }
 
+// Axis-Aligned Bounding Box collision detection
 bool AABB(const Entity& a, const Entity& b) {
     return (a.x < b.x + b.width &&
             a.x + a.width > b.x &&
@@ -228,10 +237,10 @@ void Game::UpdateGame(float deltaTime) {
     float nextX = player.x + dx * speed * deltaTime;
     float nextY = player.y + dy * speed * deltaTime;
     // X collision
-    if(detectCollision(player, nextX, player.y))
+    if(!DetectCollision(player, nextX, player.y))
         player.x = nextX;
     // Y collision
-    if(detectCollision(player, player.x, nextY))
+    if(!DetectCollision(player, player.x, nextY))
         player.y = nextY;
     for (auto &e : enemies) {
         Entity enemyBody = e.getBody();
@@ -244,11 +253,15 @@ void Game::UpdateGame(float deltaTime) {
         }
     }
     // top left corner is the coords for the camera
-    // clamp keeps the view inside the world.
-    cameraX = clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
-    cameraY = clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
+    // Clamp keeps the view inside the world.
+    cameraX = Clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
+    cameraY = Clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
     for (auto &e : enemies) {
-        e.Update(deltaTime, map, mapWidth, mapHeight, player.x, player.y);
+        e.Update(deltaTime,
+         [this](const Entity& ent, float x, float y) {
+             return DetectCollision(ent, x, y);
+         },
+         player.x, player.y);
     }
     if (enemies.empty()) {
         currentState = LEVEL_COMPLETE;
@@ -270,7 +283,7 @@ void Game::UpdateGame(float deltaTime) {
     }
     if (shootCooldown > 0.0f)
         shootCooldown -= deltaTime;
-    detectMouseClick();
+    DetectMouseClick();
     UpdateBullets(deltaTime);
 }
 
@@ -285,7 +298,7 @@ void Game::UpdateBullets(float deltaTime) {
         std::remove_if(bullets.begin(), bullets.end(),
             [&](Bullet &b) {
                 Entity bulletEntity{b.x, b.y, 5, 5};
-                return !detectCollision(bulletEntity, b.x, b.y);
+                return DetectCollision(bulletEntity, b.x, b.y);
             }),
         bullets.end()
     );
@@ -308,7 +321,7 @@ void Game::UpdateBullets(float deltaTime) {
     );
 }
 
-void Game::detectMouseClick() {
+void Game::DetectMouseClick() {
     int mouseX, mouseY;
     Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
 
@@ -367,7 +380,7 @@ void Game::UpdateGameOver() {
     }
 }
 
-double Game::clamp(double a, double minimum, double maximum) {
+double Game::Clamp(double a, double minimum, double maximum) {
     if (a < minimum) return minimum;
     if (a > maximum) return maximum;
     return a;
