@@ -54,8 +54,8 @@ void Game::SpawnEnemies(int count) {
         bool collidesWithWall;
         float distance;
         do {
-            spawnX = rand() % (mapWidth * TILE_SIZE);
-            spawnY = rand() % (mapHeight * TILE_SIZE);
+            spawnX = rand() % (mapWidth * tileSize);
+            spawnY = rand() % (mapHeight * tileSize);
             // Check wall collision
             Entity temp; // create a temporary entity for collision checking
             temp.x = spawnX;
@@ -85,9 +85,9 @@ void Game::DrawMap() {
 };
 
 void Game::DrawTile(int x, int y) {
-    int tile = map[y * mapWidth + x];
     if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight)
         return;
+    int tile = map[y * mapWidth + x];
     if (tile == 1) {
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // wall = grey
@@ -184,7 +184,10 @@ void Game::Update(float deltaTime) {
         UpdateMenu();
     }
     else if(currentState == PLAYING) {
-        UpdateGame(deltaTime);
+        float dx = 0.0f;
+        float dy = 0.0f;
+        HandlePlayerInput(deltaTime, dx, dy);
+        UpdateGame(deltaTime, dx, dy);
     }
     else if(currentState == LEVEL_COMPLETE) {
         UpdateLevelComplete();
@@ -202,18 +205,11 @@ void Game::UpdateMenu() {
     }
 }
 
-void Game::UpdateGame(float deltaTime) {
+void Game::HandlePlayerInput(float deltaTime, float& dx, float& dy) {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
-    int playerSize = 50;
     //direction vector
-    float dx = 0.0f;
-    float dy = 0.0f;
-    
-    if (playerInvulnTimer > 0.0f)
-        playerInvulnTimer -= deltaTime;
-    // (0,0) is the top left corner
-    // x goes right
-    // y goes down
+    dx = 0.0f;
+    dy = 0.0f;
     if (keystate[SDL_SCANCODE_W])
         dy -= 1;
     if (keystate[SDL_SCANCODE_S])
@@ -222,47 +218,21 @@ void Game::UpdateGame(float deltaTime) {
         dx -= 1;
     if (keystate[SDL_SCANCODE_D])
         dx += 1;
-    float length = sqrt(dx * dx + dy * dy);
-    if (length != 0.0f) {
-        dx /= length;
-        dy /= length;
-    };
-    float speed = 200.0f; //200pixels per second
-    cameraX = player.x - screenWidth / 2;
-    cameraY = player.y - screenHeight / 2;
-    int maxCameraX = mapWidth * tileSize - screenWidth;
-    int maxCameraY = mapHeight * tileSize - screenHeight;
-    if(cameraX > maxCameraX) cameraX = maxCameraX;
-    if(cameraY > maxCameraY) cameraY = maxCameraY;
-    float nextX = player.x + dx * speed * deltaTime;
-    float nextY = player.y + dy * speed * deltaTime;
-    // X collision
-    if(!DetectCollision(player, nextX, player.y))
-        player.x = nextX;
-    // Y collision
-    if(!DetectCollision(player, player.x, nextY))
-        player.y = nextY;
-    for (auto &e : enemies) {
-        Entity enemyBody = e.getBody();
-    // Check collision with player and enemy
-    if (AABB(player, enemyBody)) {
-            if (playerInvulnTimer <= 0.0f) {
-                playerHP -= 10;
-                playerInvulnTimer = 1.0f;
-            }
-        }
+}
+
+void Game::UpdatePlayer(float deltaTime) {
+    if (playerInvulnTimer > 0.0f)
+        playerInvulnTimer -= deltaTime;
+
+    if (playerHP <= 0) {
+        currentState = GAME_OVER;
     }
-    // top left corner is the coords for the camera
-    // Clamp keeps the view inside the world.
-    cameraX = Clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
-    cameraY = Clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
-    for (auto &e : enemies) {
-        e.Update(deltaTime,
-         [this](const Entity& ent, float x, float y) {
-             return DetectCollision(ent, x, y);
-         },
-         player.x, player.y);
-    }
+    if (shootCooldown > 0.0f)
+        shootCooldown -= deltaTime;
+}
+
+void Game::UpdateEnemy(float deltaTime) {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (enemies.empty()) {
         currentState = LEVEL_COMPLETE;
     }
@@ -273,19 +243,71 @@ void Game::UpdateGame(float deltaTime) {
             }
         }
     }
+    for (auto &e : enemies) {
+        e.Update(deltaTime,
+         [this](const Entity& ent, float x, float y) {
+             return DetectCollision(ent, x, y);
+         },
+         player.x, player.y);
+    }
     enemies.erase(
         std::remove_if(enemies.begin(), enemies.end(),
             [](Enemy &e) { return e.IsDead(); }),
         enemies.end()
     );
-    if (playerHP <= 0) {
-        currentState = GAME_OVER;
-    }
-    if (shootCooldown > 0.0f)
-        shootCooldown -= deltaTime;
-    DetectMouseClick();
-    UpdateBullets(deltaTime);
 }
+
+void Game::UpdateCamera(float deltaTime, float dx, float dy) {
+    cameraX = player.x - screenWidth / 2;
+    cameraY = player.y - screenHeight / 2;
+
+    int maxCameraX = mapWidth * tileSize - screenWidth;
+    int maxCameraY = mapHeight * tileSize - screenHeight;
+    if(cameraX > maxCameraX) cameraX = maxCameraX;
+    if(cameraX < 0) cameraX = 0;
+    if(cameraY > maxCameraY) cameraY = maxCameraY;
+    if(cameraY < 0) cameraY = 0;
+}
+
+void Game::UpdateCollision(float deltaTime, float dx, float dy) {
+    float speed = 200.0f; //200pixels per second
+    float nextX = player.x + dx * speed * deltaTime;
+    float nextY = player.y + dy * speed * deltaTime;
+    // X collision
+    if(!DetectCollision(player, nextX, player.y))
+        player.x = nextX;
+    // Y collision
+    if(!DetectCollision(player, player.x, nextY))
+        player.y = nextY;
+
+    for (auto &e : enemies) {
+        Entity enemyBody = e.getBody();
+        // Check collision with player and enemy
+        if (AABB(player, enemyBody)) {
+                if (playerInvulnTimer <= 0.0f) {
+                    playerHP -= 10;
+                    playerInvulnTimer = 1.0f;
+                }
+            }
+        }
+}
+
+void Game::UpdateClamp() {
+    // top left corner is the coords for the camera
+    // Clamp keeps the view inside the world.
+    cameraX = Clamp(cameraX, 0, mapWidth * tileSize - screenWidth);
+    cameraY = Clamp(cameraY, 0, mapHeight * tileSize - screenHeight);
+}
+
+void Game::UpdateGame(float deltaTime, float dx, float dy) {
+        UpdatePlayer(deltaTime);
+        UpdateCollision(deltaTime, dx, dy);
+        UpdateEnemy(deltaTime);
+        UpdateCamera(deltaTime, dx, dy);
+        UpdateClamp();
+        DetectMouseClick();
+        UpdateBullets(deltaTime);
+    }
 
 void Game::UpdateBullets(float deltaTime) {
     // Update bullets
@@ -309,14 +331,14 @@ void Game::UpdateBullets(float deltaTime) {
         for (auto &e : enemies) {
             if (AABB(bulletEntity, e.getBody())) {
                 e.TakeDamage(20);
-                b.x = -1000; // mark bullet for deletion
+                b.toDelete = true;
             }
         }
     }
     // Remove bullets marked for deletion
     bullets.erase(
         std::remove_if(bullets.begin(), bullets.end(),
-            [](Bullet &b) { return b.x < 0; }),
+            [this](const Bullet &b){ return b.toDelete || DetectCollision(Entity{b.x,b.y,5,5}, b.x,b.y); }),
         bullets.end()
     );
 }
@@ -375,7 +397,7 @@ void Game::UpdateGameOver() {
         enemies.clear();
         SpawnEnemies(5);
         currentState = PLAYING;
-        playerHP = 100;
+        playerHP = 30;
         playerInvulnTimer = 0.0f;
     }
 }
@@ -416,8 +438,7 @@ void Game::RenderLevelComplete() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    Menu menu(renderer);
-    menu.Render("Level Complete! Press ENTER");
+    menu->Render("Level Complete! Press ENTER");
 
     SDL_RenderPresent(renderer);
 }
@@ -470,8 +491,7 @@ void Game::RenderGameOver() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    Menu menu(renderer);
-    menu.Render("Game Over! Press ENTER");
+    menu->Render("Game Over! Press ENTER");
 
     SDL_RenderPresent(renderer);
 }
