@@ -18,6 +18,7 @@ class Weapon {
 public:
     enum WeaponType { PISTOL, SHOTGUN, RIFLE, MACHINEGUN };
 
+    Weapon();
     Weapon(WeaponType type = PISTOL);
 
     WeaponType GetType() const;
@@ -28,6 +29,13 @@ public:
     int GetRequiredLevel() const;
     int WeaponForLevel(WeaponType type);
 
+    void UpdateReloadCooldown(float deltaTime);
+    float GetReloadCooldown() const;
+    void StartReload();
+    int GetCurrentAmmo() const;
+    int GetMagSize() const;
+    bool IsReloading() const;
+
 private:
     WeaponType type;
     float fireRate;
@@ -35,6 +43,12 @@ private:
     int bulletSpeed;
     int bulletDamage;
     int requiredLevel;
+    int reload_cooldown;
+    int magSize;
+    int currentAmmo;
+    bool isReloading;
+    float reloadTimer;
+    float reloadDuration;
 };
 
 struct WeaponItem {

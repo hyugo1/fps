@@ -10,6 +10,7 @@
 #include "Config.h"
 #include "Menu.h"  
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include "Weapon.h"
 
 // ---------------- Constructor ----------------
@@ -277,6 +278,7 @@ void Game::Update(float deltaTime) {
         float dx = 0.0f;
         float dy = 0.0f;
         HandlePlayerInput(deltaTime, dx, dy);
+        HandleReloadInput();
         UpdateGame(deltaTime, dx, dy);
     }
     else if(currentState == LEVEL_COMPLETE) {
@@ -335,6 +337,21 @@ void Game::HandleInventoryInput() {
                 }
             }
         }
+    }
+}
+
+void Game::HandleReloadInput() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    static bool rPressedLastFrame = false;
+    if (keystate[SDL_SCANCODE_R]) {
+        if (!rPressedLastFrame) {
+            if (!playerWeapons.empty()) {
+                playerWeapons[currentWeaponIndex].StartReload();
+            }
+        }
+        rPressedLastFrame = true;
+    } else {
+        rPressedLastFrame = false;
     }
 }
 
@@ -427,6 +444,7 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdateClamp();
         DetectMouseClick();
         UpdateWeaponCooldown(deltaTime);
+        UpdateReloadCooldown(deltaTime);
         UpdateBullets(deltaTime);
         HandleInventoryInput();
 
@@ -435,6 +453,11 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
 void Game::UpdateWeaponCooldown(float deltaTime) {
     if (!playerWeapons.empty())
         playerWeapons[currentWeaponIndex].UpdateCooldown(deltaTime);
+}
+
+void Game::UpdateReloadCooldown(float deltaTime) {
+    if (!playerWeapons.empty())
+        playerWeapons[currentWeaponIndex].UpdateReloadCooldown(deltaTime);
 }
 
 void Game::UpdateBullets(float deltaTime) {
@@ -652,6 +675,7 @@ void Game::RenderGame() {
     };
     SDL_RenderFillRect(renderer, &playerRect);
     PlayerHP();
+    DisplayAmmo();
     
     //draw enemies
     for (auto &e : enemies)
@@ -743,6 +767,89 @@ void Game::EnemyHP() {
         SDL_Rect hpBarFront = { (int)(enemyBody.x - cameraX), (int)(enemyBody.y - cameraY - 10), (int)(enemyBody.width * hpRatio), 5 };
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); 
         SDL_RenderFillRect(renderer, &hpBarFront);
+    }
+}
+
+void Game::DisplayAmmo() {
+    if (playerWeapons.empty()) return;
+    
+    Weapon& currentWeapon = playerWeapons[currentWeaponIndex];
+    int currentAmmo = currentWeapon.GetCurrentAmmo();
+    int magSize = currentWeapon.GetMagSize();
+    bool reloading = currentWeapon.IsReloading();
+    
+    // Position in bottom-right corner
+    int barWidth = 150;
+    int barHeight = 30;
+    int padding = 10;
+    int x = screenWidth - barWidth - padding;
+    int y = screenHeight - barHeight - padding;
+    
+    // Background
+    SDL_Rect bgRect = { x, y, barWidth, barHeight };
+    SDL_SetRenderDrawColor(renderer, 40, 40, 40, 200);
+    SDL_RenderFillRect(renderer, &bgRect);
+    
+    // Ammo bar
+    float ammoRatio = (float)currentAmmo / (float)magSize;
+    SDL_Rect ammoBar = { x + 5, y + 5, (int)((barWidth - 10) * ammoRatio), barHeight - 10 };
+    
+    if (reloading) {
+        SDL_SetRenderDrawColor(renderer, 255, 165, 0, 255); // Orange when reloading
+    } else if (currentAmmo == 0) {
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red when empty
+    } else if (currentAmmo <= magSize * 0.25f) {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // Yellow when low
+    } else {
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green when good
+    }
+    SDL_RenderFillRect(renderer, &ammoBar);
+    
+    // Border
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+    SDL_RenderDrawRect(renderer, &bgRect);
+
+    static TTF_Font* ammoFont = TTF_OpenFont("BitcountGridDouble.ttf", 18);
+    if (ammoFont) {
+        char ammoText[32];
+        std::snprintf(ammoText, sizeof(ammoText), "%d/%d", currentAmmo, magSize);
+
+        SDL_Color textColor = {255, 255, 255, 255};
+        SDL_Surface* ammoTextSurface = TTF_RenderText_Solid(ammoFont, ammoText, textColor);
+        if (ammoTextSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, ammoTextSurface);
+            if (textTexture) {
+                SDL_Rect textRect;
+                textRect.w = ammoTextSurface->w;
+                textRect.h = ammoTextSurface->h;
+                textRect.x = x + (barWidth - textRect.w) / 2;
+                textRect.y = y + (barHeight - textRect.h) / 2;
+                SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
+                SDL_DestroyTexture(textTexture);
+            }
+            SDL_FreeSurface(ammoTextSurface);
+        }
+
+        if (reloading) {
+            static TTF_Font* reloadFont = TTF_OpenFont("BitcountGridDouble.ttf", 14);
+            if (reloadFont) {
+                SDL_Color reloadColor = {255, 165, 0, 255};
+                SDL_Surface* reloadSurface = TTF_RenderText_Solid(reloadFont, "RELOADING", reloadColor);
+                if (reloadSurface) {
+                    SDL_Texture* reloadTexture = SDL_CreateTextureFromSurface(renderer, reloadSurface);
+                    if (reloadTexture) {
+                        SDL_Rect reloadRect;
+                        reloadRect.w = reloadSurface->w;
+                        reloadRect.h = reloadSurface->h;
+                        reloadRect.x = x + (barWidth - reloadRect.w) / 2;
+                        reloadRect.y = y - reloadRect.h - 4;
+                        SDL_RenderCopy(renderer, reloadTexture, nullptr, &reloadRect);
+                        SDL_DestroyTexture(reloadTexture);
+                    }
+                    SDL_FreeSurface(reloadSurface);
+                }
+            }
+        }
     }
 }
 

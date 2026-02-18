@@ -55,6 +55,8 @@ class Game {
         std::vector<Weapon> playerWeapons;
         int currentWeaponIndex = 0;
         bool inventoryOpen = false;
+        void UpdateReloadCooldown(float deltaTime);
+        void HandleReloadInput();
 
         // ==== Items ====
         struct HealthItem {
@@ -97,6 +99,7 @@ class Game {
         void UpdatePlayer(float deltaTime);
         void UpdateCollision(float deltaTime, float dx, float dy);
         void PlayerHP();
+        void DisplayAmmo();
 
         // ====== Menu / Rendering ======
         void UpdateMenu();
