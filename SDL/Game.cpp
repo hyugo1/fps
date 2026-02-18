@@ -20,6 +20,7 @@ Game::Game() {
     currentState = MENU;
     currentLevel = 1;
     playerHP = 30;
+    playerMaxHP = 30;
     playerInvulnTimer = 0.0f;
     shootCooldown = 0.0f;
     screenHeight = 600;
@@ -456,13 +457,14 @@ void Game::RenderGame() {
         (int)(player.y - cameraY), 
         (int)player.width, (int)player.height
     };
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderFillRect(renderer, &playerRect);
-
+    PlayerHP();
+    
     //draw enemies
     for (auto &e : enemies)
         e.Render(cameraX, cameraY, renderer);
-
+    EnemyHP();
+    
     if (playerInvulnTimer > 0.0f)
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
     else
@@ -475,8 +477,7 @@ void Game::RenderGame() {
         SDL_Rect rect = {
             (int)(b.x - cameraX),
             (int)(b.y - cameraY),
-            5,
-            5
+            5, 5
         };
         SDL_RenderFillRect(renderer, &rect);
     }
@@ -484,7 +485,38 @@ void Game::RenderGame() {
     //present
     SDL_RenderPresent(renderer);
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+
+
+
 }
+
+void Game::PlayerHP() {
+    float hpRatio = (float)playerHP / (float)playerMaxHP;
+    SDL_Rect hpBarBack = { (int)(player.x - cameraX), (int)(player.y - cameraY - 10), (int)player.width, 5 };
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255); // dark gray background
+    SDL_RenderFillRect(renderer, &hpBarBack);
+
+    SDL_Rect hpBarFront = { (int)(player.x - cameraX), (int)(player.y - cameraY - 10), (int)(player.width * hpRatio), 5 };
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); 
+    SDL_RenderFillRect(renderer, &hpBarFront);
+}
+
+
+void Game::EnemyHP() {
+    for (auto &e : enemies) {
+        float hpRatio = (float)e.GetHP() / (float)e.GetMaxHP();
+        Entity enemyBody = e.getBody();
+        SDL_Rect hpBarBack = { (int)(enemyBody.x - cameraX), (int)(enemyBody.y - cameraY - 10), (int)enemyBody.width, 5 };
+        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255); 
+        SDL_RenderFillRect(renderer, &hpBarBack);
+
+        SDL_Rect hpBarFront = { (int)(enemyBody.x - cameraX), (int)(enemyBody.y - cameraY - 10), (int)(enemyBody.width * hpRatio), 5 };
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); 
+        SDL_RenderFillRect(renderer, &hpBarFront);
+    }
+}
+
+
 
 void Game::RenderGameOver() {
     //clear screen to black

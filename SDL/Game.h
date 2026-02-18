@@ -30,12 +30,14 @@ class Game {
         // ====== Player ======
         Entity player;
         int playerHP;
+        int playerMaxHP;
         float playerInvulnTimer;
 
         // ====== Enemies ======
         std::vector<Enemy> enemies;
         void SpawnEnemies(int count);
         void UpdateEnemy(float deltaTime);
+        void EnemyHP();
 
         // ====== Bullets ======
         struct Bullet {
@@ -74,6 +76,7 @@ class Game {
         void HandlePlayerInput(float deltaTime, float &dx, float &dy);
         void UpdatePlayer(float deltaTime);
         void UpdateCollision(float deltaTime, float dx, float dy);
+        void PlayerHP();
 
         // ====== Menu / Rendering ======
         void UpdateMenu();

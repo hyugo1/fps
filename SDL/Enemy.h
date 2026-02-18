@@ -22,13 +22,14 @@ class Enemy {
         void TakeDamage(int amount);
         bool IsDead() const;
         int GetHP() const;
-
+        int GetMaxHP() const;
     private:
         Entity body;
         float directionX;
         float directionY;
-        double hitpoint;
         int tileSize;
+        int health;
+        int maxHealth;
         void HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);

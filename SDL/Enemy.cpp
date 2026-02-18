@@ -13,11 +13,12 @@ Enemy::Enemy(float startX, float startY, EnemyType type) {
     body.y = startY;
     body.width = PLAYER_SIZE;
     body.height = PLAYER_SIZE;
-    hitpoint = 100;
     tileSize = TILE_SIZE;
     directionX = 1;
     directionY = 1;
     character = type;
+    health = 100;
+    maxHealth = 100;
 }
 
 float Enemy::GetX() const {
@@ -33,16 +34,18 @@ const Entity& Enemy::getBody() const {
 }
 
 void Enemy::TakeDamage(int amount) {
-    hitpoint -= amount;
+    health -= amount;
 }
 
 bool Enemy::IsDead() const {
-    return hitpoint <= 0;
+    return health <= 0;
 }
 
 int Enemy::GetHP() const {
-    return hitpoint;
+    return health;
 }
+
+int Enemy::GetMaxHP() const { return maxHealth; }
 
 void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
     if (character == horizontalEnemy) {
@@ -100,6 +103,6 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
         (int)(body.y - cameraY), 
         (int)body.width, (int)body.height
     };
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 200, 255, 255);
     SDL_RenderFillRect(renderer, &enemyRect);
 }
