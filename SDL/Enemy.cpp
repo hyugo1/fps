@@ -8,7 +8,7 @@
 #include "Config.h"
 
 // ---------------- Constructor ----------------
-Enemy::Enemy(float startX, float startY, EnemyType type) {
+Enemy::Enemy(float startX, float startY, EnemyType type, int level) {
     body.x = startX;
     body.y = startY;
     body.width = PLAYER_SIZE;
@@ -17,8 +17,12 @@ Enemy::Enemy(float startX, float startY, EnemyType type) {
     directionX = 1;
     directionY = 1;
     character = type;
-    health = 100;
-    maxHealth = 100;
+    float baseSpeed = 100.0f;
+    int baseHealth = 100;
+    speed = baseSpeed + (level - 1) * 2.0f;
+    maxHealth = baseHealth + (level - 1) * 2;
+    health = maxHealth;
+    maxdistance = 200.0f + (level - 1) * 5.0f;
 }
 
 float Enemy::GetX() const {
@@ -45,23 +49,28 @@ int Enemy::GetHP() const {
     return health;
 }
 
-int Enemy::GetMaxHP() const { return maxHealth; }
+int Enemy::GetMaxHP() const { 
+    return maxHealth; }
 
-void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
-    if (character == horizontalEnemy) {
-        HorizontalMove(deltaTime, collisionFunc);
-    }
-    if (character == verticalEnemy) {
-        VerticalMove(deltaTime, collisionFunc);
-    }
-    if (character == smartEnemy) {
-        SmartEnemy(deltaTime, collisionFunc, playerX, playerY);
+void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY)
+{
+    switch (character)
+    {
+        case horizontalEnemy:
+            HorizontalMove(deltaTime, collisionFunc);
+            break;
+
+        case verticalEnemy:
+            VerticalMove(deltaTime, collisionFunc);
+            break;
+
+        case smartEnemy:
+            SmartEnemy(deltaTime, collisionFunc, playerX, playerY);
+            break;
     }
 }
 
 void Enemy::HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
-    float speed = 125.0f; // pixels per second
-
     float nextX = body.x + directionX * speed * deltaTime;
     if (collisionFunc(body, nextX, body.y)) {
         directionX = -directionX; // reverse
@@ -71,8 +80,6 @@ void Enemy::HorizontalMove(float deltaTime, std::function<bool(const Entity&, fl
 }
 
 void Enemy::VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
-    float speed = 125.0f; // pixels per second
-
     float nextY = body.y + directionY * speed * deltaTime;
     if (collisionFunc(body, body.x, nextY)) {
         directionY = -directionY; // reverse
@@ -82,11 +89,10 @@ void Enemy::VerticalMove(float deltaTime, std::function<bool(const Entity&, floa
 }
 
 void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
-    float speed = 125.0f; 
     float dx = playerX - body.x;
     float dy = playerY - body.y;
     float distance = sqrt(dx*dx + dy*dy);
-    if(distance < 200) { 
+    if(distance < maxdistance) { 
         dx /= distance;
         dy /= distance;
         float nextX = body.x + dx * speed * deltaTime;
@@ -103,6 +109,24 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
         (int)(body.y - cameraY), 
         (int)body.width, (int)body.height
     };
-    SDL_SetRenderDrawColor(renderer, 0, 200, 255, 255);
+
+    Uint8 baseR, baseG, baseB;
+
+    if (character == horizontalEnemy) {
+        baseR = 255; baseG = 0; baseB = 0; // red
+    } else if (character == verticalEnemy) {
+        baseR = 255; baseG = 165; baseB = 0; // orange
+    } else if (character == smartEnemy) {
+        baseR = 0; baseG = 200; baseB = 255; // cyan
+    }
+
+    float healthPercent = (float)health / maxHealth;
+
+    Uint8 r = baseR * healthPercent;
+    Uint8 g = baseG * healthPercent;
+    Uint8 b = baseB * healthPercent;
+
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+
     SDL_RenderFillRect(renderer, &enemyRect);
 }

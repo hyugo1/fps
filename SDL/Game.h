@@ -26,6 +26,7 @@ class Game {
         enum GameState { MENU, PLAYING, LEVEL_COMPLETE, GAME_OVER };
         GameState currentState;
         int currentLevel;
+        int getLevel();
 
         // ====== Player ======
         Entity player;
@@ -51,6 +52,16 @@ class Game {
         
         void UpdateBullets(float deltaTime);
         void DetectMouseClick();
+
+        // ==== Items ====
+        struct HealthItem {
+            float x, y;
+            float width, height;
+            bool collected = false;
+        };
+        std::vector<HealthItem> healthItems;
+        void SpawnHealthItems(int count);
+        void UpdateHealthItems();
 
         
         // ====== Map ======

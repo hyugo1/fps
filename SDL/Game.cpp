@@ -71,8 +71,11 @@ void Game::SpawnEnemies(int count) {
         } while(collidesWithWall || distance < MIN_DISTANCE); // ensure enemies don't spawn too close to the player or inside walls
         Enemy::EnemyType type =
             static_cast<Enemy::EnemyType>(rand() % 3);
-        enemies.push_back(Enemy(spawnX, spawnY, type));
+        enemies.push_back(Enemy(spawnX, spawnY, type, currentLevel));
     }
+}
+int Game::getLevel() {
+    return currentLevel;
 }
 
 void Game::DrawMap() {
@@ -91,17 +94,17 @@ void Game::DrawTile(int x, int y) {
     int tile = map[y * mapWidth + x];
     if (tile == 1) {
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // wall = grey
+        SDL_SetRenderDrawColor(renderer, 30, 30, 35, 255); //wall
         SDL_RenderFillRect(renderer, &rect);
     }
     if (tile == 0) {
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // dark grey floor
+        SDL_SetRenderDrawColor(renderer, 60, 55, 50, 255); // floor
         SDL_RenderFillRect(renderer, &rect);
     }
     if (tile == 2) {
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // green for special tile
+        SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //random obstacles
         SDL_RenderFillRect(renderer, &rect);
     }
 }
@@ -179,6 +182,41 @@ void Game::HandleEvents() {
         }
     }
 }
+
+void Game::SpawnHealthItems(int count) {
+    const float MIN_DISTANCE = 100.0f; // Don't spawn too close to player
+    for(int i = 0; i < count; i++) {
+        float spawnX, spawnY;
+        bool collidesWithWall;
+        float distance;
+
+        do {
+            spawnX = rand() % (mapWidth * tileSize);
+            spawnY = rand() % (mapHeight * tileSize);
+
+            Entity temp;
+            temp.x = spawnX;
+            temp.y = spawnY;
+            temp.width = PLAYER_SIZE;
+            temp.height = PLAYER_SIZE;
+
+            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
+
+            float dx = spawnX - player.x;
+            float dy = spawnY - player.y;
+            distance = sqrt(dx*dx + dy*dy);
+
+        } while(collidesWithWall || distance < MIN_DISTANCE);
+
+        HealthItem item;
+        item.x = spawnX;
+        item.y = spawnY;
+        item.width = PLAYER_SIZE / 2;
+        item.height = PLAYER_SIZE / 2;
+        healthItems.push_back(item);
+    }
+}
+
 
 void Game::Update(float deltaTime) {
     if(currentState == MENU) {
@@ -303,6 +341,7 @@ void Game::UpdateClamp() {
 void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdatePlayer(deltaTime);
         UpdateCollision(deltaTime, dx, dy);
+        UpdateHealthItems(); 
         UpdateEnemy(deltaTime);
         UpdateCamera(deltaTime, dx, dy);
         UpdateClamp();
@@ -344,6 +383,27 @@ void Game::UpdateBullets(float deltaTime) {
     );
 }
 
+void Game::UpdateHealthItems() {
+    for (auto &h : healthItems) {
+        if (!h.collected) {
+            Entity itemEntity{h.x, h.y, h.width, h.height};
+            if (AABB(player, itemEntity)) {
+                playerHP += (int)(playerMaxHP * 0.2f); // heal 20%
+                if (playerHP > playerMaxHP)
+                    playerHP = playerMaxHP;
+                h.collected = true;
+            }
+        }
+    }
+
+    // Optionally remove collected items to save memory
+    healthItems.erase(
+        std::remove_if(healthItems.begin(), healthItems.end(),
+            [](const HealthItem &h){ return h.collected; }),
+        healthItems.end()
+    );
+}
+
 void Game::DetectMouseClick() {
     int mouseX, mouseY;
     Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
@@ -382,8 +442,10 @@ void Game::DetectMouseClick() {
 void Game::UpdateLevelComplete() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (keystate[SDL_SCANCODE_RETURN]) {
+        currentLevel++;
         enemies.clear();
         SpawnEnemies(5 + currentLevel); // Spawn more enemies for next level
+        SpawnHealthItems(2); //fixed 2 health items per level
         currentState = PLAYING;
     }
 }
@@ -397,6 +459,7 @@ void Game::UpdateGameOver() {
         player.y = screenHeight / 2;
         enemies.clear();
         SpawnEnemies(5);
+        SpawnHealthItems(2);
         currentState = PLAYING;
         playerHP = 30;
         playerInvulnTimer = 0.0f;
@@ -481,13 +544,23 @@ void Game::RenderGame() {
         };
         SDL_RenderFillRect(renderer, &rect);
     }
+
+    for (auto &h : healthItems) {
+        if (!h.collected) {
+            SDL_Rect rect = {
+                (int)(h.x - cameraX),
+                (int)(h.y - cameraY),
+                (int)h.width,
+                (int)h.height
+            };
+            SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
     //update screen, swaps the back buffer to the screen
     //present
     SDL_RenderPresent(renderer);
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-
-
-
 }
 
 void Game::PlayerHP() {
@@ -515,8 +588,6 @@ void Game::EnemyHP() {
         SDL_RenderFillRect(renderer, &hpBarFront);
     }
 }
-
-
 
 void Game::RenderGameOver() {
     //clear screen to black

@@ -12,7 +12,7 @@ class Enemy {
         enum EnemyType { horizontalEnemy, verticalEnemy, smartEnemy };
         EnemyType character;
         
-        Enemy(float startX, float startY, EnemyType type);
+        Enemy(float startX, float startY, EnemyType type, int level);
 
         void Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);
         void Render(float cameraX, float cameraY, SDL_Renderer* renderer);
@@ -30,6 +30,8 @@ class Enemy {
         int tileSize;
         int health;
         int maxHealth;
+        float speed;
+        float maxdistance;
         void HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);
