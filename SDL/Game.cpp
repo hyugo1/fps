@@ -10,6 +10,7 @@
 #include "Config.h"
 #include "Menu.h"  
 #include <SDL2/SDL.h>
+#include "Weapon.h"
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -32,6 +33,8 @@ Game::Game() {
     player.width = PLAYER_SIZE;
     player.height = PLAYER_SIZE;
     tileSize = TILE_SIZE;
+    playerMeleeDamage = 25;
+    
     //map
     for(int y = 0; y < mapHeight; y++) {
         for(int x = 0; x < mapWidth; x++) {
@@ -46,6 +49,10 @@ Game::Game() {
     //enemies
     srand(time(nullptr));
     SpawnEnemies(5);
+
+    //weapons
+    playerWeapons.push_back(Weapon(Weapon::PISTOL));
+    currentWeaponIndex = 0;
 }
 
 void Game::SpawnEnemies(int count) {
@@ -217,6 +224,50 @@ void Game::SpawnHealthItems(int count) {
     }
 }
 
+void Game::SpawnWeaponItems(int count) {
+    const float MIN_DISTANCE = 100.0f;
+
+    for (int i = 0; i < count; i++) {
+        float spawnX, spawnY;
+        bool collidesWithWall;
+        float distance;
+
+        do {
+            spawnX = rand() % (mapWidth * tileSize);
+            spawnY = rand() % (mapHeight * tileSize);
+
+            Entity temp;
+            temp.x = spawnX;
+            temp.y = spawnY;
+            temp.width = PLAYER_SIZE;
+            temp.height = PLAYER_SIZE;
+
+            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
+
+            float dx = spawnX - player.x;
+            float dy = spawnY - player.y;
+            distance = sqrt(dx*dx + dy*dy);
+
+        } while(collidesWithWall || distance < MIN_DISTANCE);
+
+        WeaponItem item;
+        item.x = spawnX;
+        item.y = spawnY;
+        item.width = PLAYER_SIZE / 2;
+        item.height = PLAYER_SIZE / 2;
+       
+        if (currentLevel == 2) {
+            item.type = Weapon::RIFLE;
+        } else if (currentLevel == 3) {
+            item.type = Weapon::SHOTGUN;
+        } else {
+            item.type = Weapon::MACHINEGUN;
+        }
+
+        weaponItems.push_back(item);
+    }
+}
+
 
 void Game::Update(float deltaTime) {
     if(currentState == MENU) {
@@ -245,7 +296,11 @@ void Game::UpdateMenu() {
 }
 
 void Game::HandlePlayerInput(float deltaTime, float& dx, float& dy) {
-    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+   HandlePlayerMovementInput(deltaTime, dx, dy);
+}
+
+void Game::HandlePlayerMovementInput(float deltaTime, float& dx, float& dy) {
+     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     //direction vector
     dx = 0.0f;
     dy = 0.0f;
@@ -257,6 +312,30 @@ void Game::HandlePlayerInput(float deltaTime, float& dx, float& dy) {
         dx -= 1;
     if (keystate[SDL_SCANCODE_D])
         dx += 1;
+}
+
+void Game::HandleInventoryInput() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    static bool ePressedLastFrame = false;
+    // Toggle inventory
+    if (keystate[SDL_SCANCODE_E]) {
+        if (!ePressedLastFrame) {
+            inventoryOpen = !inventoryOpen;
+        }
+        ePressedLastFrame = true;
+    } else {
+        ePressedLastFrame = false;
+    }
+
+    if (inventoryOpen) {
+        for (int i = 0; i < playerWeapons.size(); i++) {
+        if (keystate[SDL_SCANCODE_1 + i]) {
+            if (currentLevel >= playerWeapons[i].GetRequiredLevel()) {
+                currentWeaponIndex = i;
+                }
+            }
+        }
+    }
 }
 
 void Game::UpdatePlayer(float deltaTime) {
@@ -278,7 +357,7 @@ void Game::UpdateEnemy(float deltaTime) {
     if (keystate[SDL_SCANCODE_SPACE]) {
         for (auto &e : enemies) {
             if (AABB(player, e.getBody())) {
-                e.TakeDamage(25);
+                e.TakeDamage(playerMeleeDamage);
             }
         }
     }
@@ -342,12 +421,21 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdatePlayer(deltaTime);
         UpdateCollision(deltaTime, dx, dy);
         UpdateHealthItems(); 
+        UpdateWeaponItems();
         UpdateEnemy(deltaTime);
         UpdateCamera(deltaTime, dx, dy);
         UpdateClamp();
         DetectMouseClick();
+        UpdateWeaponCooldown(deltaTime);
         UpdateBullets(deltaTime);
-    }
+        HandleInventoryInput();
+
+}
+
+void Game::UpdateWeaponCooldown(float deltaTime) {
+    if (!playerWeapons.empty())
+        playerWeapons[currentWeaponIndex].UpdateCooldown(deltaTime);
+}
 
 void Game::UpdateBullets(float deltaTime) {
     // Update bullets
@@ -370,7 +458,7 @@ void Game::UpdateBullets(float deltaTime) {
 
         for (auto &e : enemies) {
             if (AABB(bulletEntity, e.getBody())) {
-                e.TakeDamage(20);
+                e.TakeDamage(b.damage);
                 b.toDelete = true;
             }
         }
@@ -396,7 +484,6 @@ void Game::UpdateHealthItems() {
         }
     }
 
-    // Optionally remove collected items to save memory
     healthItems.erase(
         std::remove_if(healthItems.begin(), healthItems.end(),
             [](const HealthItem &h){ return h.collected; }),
@@ -404,37 +491,79 @@ void Game::UpdateHealthItems() {
     );
 }
 
+void Game::UpdateWeaponItems() {
+    //only add weapon to inventory if not already owned
+    if (currentLevel == 2) {
+        // only spawn rifle in level 2
+        for (auto &w : weaponItems) {
+            if (w.type != Weapon::RIFLE) {
+                w.collected = true;
+            }
+        }
+    }
+
+    if (currentLevel == 3) {
+        // only spawn shotgun in level 3
+        for (auto &w : weaponItems) {
+            if (w.type != Weapon::SHOTGUN) {
+                w.collected = true;
+            }
+        }
+    }
+
+    if (currentLevel == 4) {
+        // only spawn machinegun in level 4
+        for (auto &w : weaponItems) {
+            if (w.type != Weapon::MACHINEGUN) {
+                w.collected = true;
+            }
+        }
+    }
+    
+
+    for (auto &w : weaponItems) {
+        if (!w.collected) {
+            Entity itemEntity{w.x, w.y, w.width, w.height};
+            if (AABB(player, itemEntity)) {
+                // Add weapon to inventory if not already owned
+                bool alreadyOwned = false;
+                for (auto &wp : playerWeapons) {
+                    if (wp.GetType() == w.type) {
+                        alreadyOwned = true;
+                        break;
+                    }
+                }
+                if (!alreadyOwned)
+                    playerWeapons.push_back(Weapon(w.type));
+
+                w.collected = true;
+            }
+        }
+    }
+
+    // remove collected items
+    weaponItems.erase(
+        std::remove_if(weaponItems.begin(), weaponItems.end(),
+            [](const WeaponItem &w){ return w.collected; }),
+        weaponItems.end()
+    );
+}
+
 void Game::DetectMouseClick() {
     int mouseX, mouseY;
     Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
 
-    if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-        if (shootCooldown <= 0.0f) {
+    if(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+        float worldMouseX = mouseX + cameraX;
+        float worldMouseY = mouseY + cameraY;
 
-            // Convert mouse from screen space to world space
-            float worldMouseX = mouseX + cameraX;
-            float worldMouseY = mouseY + cameraY;
-
-            float dirX = worldMouseX - player.x;
-            float dirY = worldMouseY - player.y;
-
-            float length = sqrt(dirX * dirX + dirY * dirY);
-
-            if (length != 0) {
-                dirX /= length;
-                dirY /= length;
-            }
-
-            Bullet b;
-            b.x = player.x + player.width / 2;
-            b.y = player.y + player.height / 2;
-            b.dx = dirX;
-            b.dy = dirY;
-            b.speed = 400.0f;
-
-            bullets.push_back(b);
-
-            shootCooldown = 0.3f; // 0.3 sec between shots
+        if (!playerWeapons.empty()) {
+            playerWeapons[currentWeaponIndex].Fire(
+                player.x + player.width / 2, 
+                player.y + player.height / 2,
+                worldMouseX, worldMouseY,
+                bullets
+            );
         }
     }
 }
@@ -446,6 +575,7 @@ void Game::UpdateLevelComplete() {
         enemies.clear();
         SpawnEnemies(5 + currentLevel); // Spawn more enemies for next level
         SpawnHealthItems(2); //fixed 2 health items per level
+        SpawnWeaponItems(1); // spawn level weapon pickup (shotgun/rifle/machinegun)
         currentState = PLAYING;
     }
 }
@@ -554,6 +684,33 @@ void Game::RenderGame() {
                 (int)h.height
             };
             SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+
+    for (auto &w : weaponItems) {
+        if (!w.collected) {
+            SDL_Rect rect = {
+                (int)(w.x - cameraX),
+                (int)(w.y - cameraY),
+                (int)w.width,
+                (int)w.height
+            };
+            SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // blue for weapons
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+
+    if (inventoryOpen) {
+        int startX = 50;
+        int startY = 50;
+        int size = 40;
+        for (size_t i = 0; i < playerWeapons.size(); i++) {
+            SDL_Rect rect = { startX + (int)i*(size+10), startY, size, size };
+            if (i == currentWeaponIndex)
+                SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // highlight current
+            else
+                SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
             SDL_RenderFillRect(renderer, &rect);
         }
     }

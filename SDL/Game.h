@@ -7,6 +7,7 @@
 #include "Enemy.h"
 #include <SDL2/SDL.h>
 #include "Entity.h"
+#include "Weapon.h"
 
 class Menu;
 
@@ -33,6 +34,7 @@ class Game {
         int playerHP;
         int playerMaxHP;
         float playerInvulnTimer;
+        int playerMeleeDamage;
 
         // ====== Enemies ======
         std::vector<Enemy> enemies;
@@ -41,17 +43,18 @@ class Game {
         void EnemyHP();
 
         // ====== Bullets ======
-        struct Bullet {
-            float x, y;
-            float dx, dy;
-            float speed;
-            bool toDelete = false;
-        };
         std::vector<Bullet> bullets;
         float shootCooldown;
         
         void UpdateBullets(float deltaTime);
         void DetectMouseClick();
+        
+        // ==== Weapons ====
+        enum WeaponType { PISTOL, RIFLE, SHOTGUN, MACHINEGUN };
+        WeaponType currentWeapon = PISTOL;
+        std::vector<Weapon> playerWeapons;
+        int currentWeaponIndex = 0;
+        bool inventoryOpen = false;
 
         // ==== Items ====
         struct HealthItem {
@@ -60,8 +63,11 @@ class Game {
             bool collected = false;
         };
         std::vector<HealthItem> healthItems;
+        std::vector<WeaponItem> weaponItems;
         void SpawnHealthItems(int count);
         void UpdateHealthItems();
+        void SpawnWeaponItems(int count);
+        void UpdateWeaponItems();
 
         
         // ====== Map ======
@@ -85,6 +91,9 @@ class Game {
         
         // ====== Player Systems ======
         void HandlePlayerInput(float deltaTime, float &dx, float &dy);
+        void HandlePlayerMovementInput(float deltaTime, float &dx, float &dy);
+        void HandleInventoryInput();
+        void UpdateWeaponCooldown(float deltaTime);
         void UpdatePlayer(float deltaTime);
         void UpdateCollision(float deltaTime, float dx, float dy);
         void PlayerHP();

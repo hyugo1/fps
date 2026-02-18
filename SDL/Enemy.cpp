@@ -37,7 +37,7 @@ const Entity& Enemy::getBody() const {
     return body;
 }
 
-void Enemy::TakeDamage(int amount) {
+void Enemy::TakeDamage(int &amount) {
     health -= amount;
 }
 
