@@ -18,6 +18,7 @@
 // ---------------- Constructor ----------------
 Game::Game() {
     running = false;
+    paused = false;
     lastTime = 0;
     window = nullptr;
     renderer = nullptr;
@@ -157,6 +158,7 @@ bool Game::Init() {
         return false;
     }
 
+    paused = false;
     running = true;
     menu = new Menu(renderer);
     return true;
@@ -172,10 +174,12 @@ void Game::HandleEvents() {
         if (event.type == SDL_QUIT) {
             running = false;
         }
+        else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
+            currentState = PAUSED;
+            paused = true;
+        }
     }
 }
-
-
 
 void Game::Update(float deltaTime) {
     if(currentState == MENU) {
@@ -185,8 +189,15 @@ void Game::Update(float deltaTime) {
         float dx = 0.0f;
         float dy = 0.0f;
         HandlePlayerInput(deltaTime, dx, dy);
+        HandlePauseInput();
+        if (currentState != PLAYING) {
+            return;
+        }
         HandleReloadInput();
         UpdateGame(deltaTime, dx, dy);
+    }
+    else if (currentState == PAUSED) {
+        HandlePauseInput();
     }
     else if(currentState == LEVEL_COMPLETE) {
         UpdateLevelComplete();
@@ -201,6 +212,25 @@ void Game::UpdateMenu() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (keystate[SDL_SCANCODE_RETURN]) {
         currentState = PLAYING;
+    }
+}
+
+void Game::HandlePauseInput() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    static bool escPressedLastFrame = false;
+    if (keystate[SDL_SCANCODE_ESCAPE]) {
+        if (!escPressedLastFrame) {
+            if (currentState == PLAYING) {
+                currentState = PAUSED;
+                paused = true;
+            } else if (currentState == PAUSED) {
+                currentState = PLAYING;
+                paused = false;
+            }
+        }
+        escPressedLastFrame = true;
+    } else {
+        escPressedLastFrame = false;
     }
 }
 
@@ -412,7 +442,6 @@ void Game::UpdateWeaponItems() {
             }
         }
     }
-    
 
     for (auto &w : weaponItems) {
         if (!w.collected) {
@@ -569,6 +598,9 @@ void Game::Render() {
     else if(currentState == PLAYING) {
         RenderGame();
     }
+    else if(currentState == PAUSED) {
+        RenderPauseMenu();
+    }
     else if(currentState == LEVEL_COMPLETE) {
         RenderLevelComplete();
     }
@@ -576,6 +608,10 @@ void Game::Render() {
         RenderGameOver();
     }
 }   
+
+void Game::RenderPauseMenu() {
+    RenderGame();
+}
 
 void Game::RenderMenu() {
     //clear screen to black
@@ -623,7 +659,6 @@ void Game::RenderGame() {
     for (auto &e : enemies)
         e.Render(cameraX, cameraY, renderer);
     EnemyHP();
-    
 
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
@@ -676,10 +711,23 @@ void Game::RenderGame() {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
+
+    RenderPauseOverlay();
+
     //update screen, swaps the back buffer to the screen
     //present
     SDL_RenderPresent(renderer);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+}
+
+void Game::RenderPauseOverlay() {
+    if (currentState == PAUSED) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+        SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
+        SDL_RenderFillRect(renderer, &overlay);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        menu->Render("PAUSED", screenWidth, screenHeight);
+    }
 }
 
 void Game::PlayerHP() {

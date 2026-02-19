@@ -25,7 +25,7 @@ class Game {
 
     private:
         // ====== Game State ======
-        enum GameState { MENU, PLAYING, LEVEL_COMPLETE, GAME_OVER };
+        enum GameState { MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
         GameState currentState;
         int currentLevel;
         int getLevel();
@@ -98,7 +98,10 @@ class Game {
         void UpdateMenu();
         void UpdateLevelComplete();
         void UpdateGameOver();
+        void HandlePauseInput();
+        void RenderPauseOverlay();
         void RenderMenu();
+        void RenderPauseMenu();
         void RenderGame();
         void RenderLevelComplete();
         void RenderGameOver();
@@ -107,6 +110,7 @@ class Game {
         SDL_Window* window;
         SDL_Renderer* renderer;
         bool running;
+        bool paused;
         Uint32 lastTime;
         int screenWidth;
         int screenHeight;
