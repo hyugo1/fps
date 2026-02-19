@@ -497,9 +497,16 @@ void Game::UpdateGameOver() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (keystate[SDL_SCANCODE_RETURN]) {
         // Reset game state
+        currentLevel = 1;
         player.x = screenWidth / 2;
         player.y = screenHeight / 2;
         enemies.clear();
+        bullets.clear();
+        healthItems.clear();
+        weaponItems.clear();
+        playerWeapons.clear();
+        playerWeapons.push_back(Weapon(Weapon::PISTOL));
+        currentWeaponIndex = 0;
         SpawnSystem::SpawnEnemies(
             5,
             enemies,
@@ -537,6 +544,7 @@ void Game::UpdateGameOver() {
         );
         currentState = PLAYING;
         playerHP = 30;
+        playerMaxHP = 30;
         playerInvulnTimer = 0.0f;
     }
 }
