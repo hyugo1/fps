@@ -25,8 +25,9 @@ class Game {
 
     private:
         // ====== Game State ======
-        enum GameState { MENU, PLAYING, LEVEL_COMPLETE, GAME_OVER };
+        enum GameState { MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
         GameState currentState;
+        GameState previousState;
         int currentLevel;
         int getLevel();
 
@@ -98,7 +99,11 @@ class Game {
         void UpdateMenu();
         void UpdateLevelComplete();
         void UpdateGameOver();
+        void HandlePauseInput();
+        void RenderPauseOverlay();
         void RenderMenu();
+        void RenderPauseMenu();
+        void RenderGameScene();
         void RenderGame();
         void RenderLevelComplete();
         void RenderGameOver();

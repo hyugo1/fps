@@ -22,6 +22,7 @@ Game::Game() {
     window = nullptr;
     renderer = nullptr;
     currentState = MENU;
+    previousState = currentState;
     currentLevel = 1;
     playerHP = 30;
     playerMaxHP = 30;
@@ -157,6 +158,7 @@ bool Game::Init() {
         return false;
     }
 
+    previousState = currentState;
     running = true;
     menu = new Menu(renderer);
     return true;
@@ -172,10 +174,17 @@ void Game::HandleEvents() {
         if (event.type == SDL_QUIT) {
             running = false;
         }
+        else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
+            previousState = currentState;
+            currentState = PAUSED;
+        }
+        else if (event.type == SDL_APP_DIDENTERFOREGROUND) {
+            if (currentState == PAUSED) {
+                currentState = previousState;
+            }
+        }
     }
 }
-
-
 
 void Game::Update(float deltaTime) {
     if(currentState == MENU) {
@@ -185,8 +194,15 @@ void Game::Update(float deltaTime) {
         float dx = 0.0f;
         float dy = 0.0f;
         HandlePlayerInput(deltaTime, dx, dy);
+        HandlePauseInput();
+        if (currentState != PLAYING) {
+            return;
+        }
         HandleReloadInput();
         UpdateGame(deltaTime, dx, dy);
+    }
+    else if (currentState == PAUSED) {
+        HandlePauseInput();
     }
     else if(currentState == LEVEL_COMPLETE) {
         UpdateLevelComplete();
@@ -201,6 +217,24 @@ void Game::UpdateMenu() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (keystate[SDL_SCANCODE_RETURN]) {
         currentState = PLAYING;
+    }
+}
+
+void Game::HandlePauseInput() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    static bool escPressedLastFrame = false;
+    if (keystate[SDL_SCANCODE_ESCAPE]) {
+        if (!escPressedLastFrame) {
+            if (currentState != PAUSED) {
+                previousState = currentState;
+                currentState = PAUSED;
+            } else {
+                currentState = previousState;
+            }
+        }
+        escPressedLastFrame = true;
+    } else {
+        escPressedLastFrame = false;
     }
 }
 
@@ -412,7 +446,6 @@ void Game::UpdateWeaponItems() {
             }
         }
     }
-    
 
     for (auto &w : weaponItems) {
         if (!w.collected) {
@@ -569,6 +602,9 @@ void Game::Render() {
     else if(currentState == PLAYING) {
         RenderGame();
     }
+    else if(currentState == PAUSED) {
+        RenderPauseMenu();
+    }
     else if(currentState == LEVEL_COMPLETE) {
         RenderLevelComplete();
     }
@@ -576,6 +612,12 @@ void Game::Render() {
         RenderGameOver();
     }
 }   
+
+void Game::RenderPauseMenu() {
+    RenderGameScene();
+    RenderPauseOverlay();
+    SDL_RenderPresent(renderer);
+}
 
 void Game::RenderMenu() {
     //clear screen to black
@@ -598,6 +640,14 @@ void Game::RenderLevelComplete() {
 }
 
 void Game::RenderGame() {
+    RenderGameScene();
+
+    //update screen, swaps the back buffer to the screen
+    //present
+    SDL_RenderPresent(renderer);
+}
+
+void Game::RenderGameScene() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -623,7 +673,6 @@ void Game::RenderGame() {
     for (auto &e : enemies)
         e.Render(cameraX, cameraY, renderer);
     EnemyHP();
-    
 
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
@@ -676,10 +725,17 @@ void Game::RenderGame() {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
-    //update screen, swaps the back buffer to the screen
-    //present
-    SDL_RenderPresent(renderer);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+}
+
+void Game::RenderPauseOverlay() {
+    if (currentState == PAUSED) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+        SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
+        SDL_RenderFillRect(renderer, &overlay);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        menu->Render("PAUSED", screenWidth, screenHeight);
+    }
 }
 
 void Game::PlayerHP() {
