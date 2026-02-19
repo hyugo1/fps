@@ -94,6 +94,10 @@ class Game {
         void UpdateCollision(float deltaTime, float dx, float dy);
         void PlayerHP();
         void DisplayAmmo();
+        void DisplayScore();
+        void LoadHighScore();
+        void SaveHighScore();
+        void ResetHighScore();
 
         // ====== Menu / Rendering ======
         void UpdateMenu();
@@ -115,6 +119,9 @@ class Game {
         Uint32 lastTime;
         int screenWidth;
         int screenHeight;
+        int score;
+        int highScore;
+        bool highScoreResetInGameOver;
 
         double Clamp(double a, double min, double max);
     };

@@ -14,6 +14,7 @@
 #include "Weapon.h"
 #include "CombatSystem.h"
 #include "SpawnSystem.h"
+#include <fstream>
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -30,6 +31,10 @@ Game::Game() {
     shootCooldown = 0.0f;
     screenHeight = 600;
     screenWidth = 800;
+    score = 0;
+    highScore = 0;
+    highScoreResetInGameOver = false;
+    LoadHighScore();
     cameraX = screenWidth / 2;
     cameraY = screenHeight / 2;
     player.x = screenWidth / 2;
@@ -301,6 +306,8 @@ void Game::UpdatePlayer(float deltaTime) {
         playerInvulnTimer -= deltaTime;
 
     if (playerHP <= 0) {
+        highScoreResetInGameOver = false;
+        SaveHighScore();
         currentState = GAME_OVER;
     }
     if (shootCooldown > 0.0f)
@@ -308,6 +315,7 @@ void Game::UpdatePlayer(float deltaTime) {
 }
 
 void Game::UpdateEnemy(float deltaTime) {
+    int enemiesBefore = (int)enemies.size();
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     bool levelComplete = false;
     CombatSystem::UpdateEnemy(
@@ -321,6 +329,12 @@ void Game::UpdateEnemy(float deltaTime) {
         keystate[SDL_SCANCODE_SPACE],
         levelComplete
     );
+
+    int enemiesAfter = (int)enemies.size();// check for meele attacks by player
+    int kills = enemiesBefore - enemiesAfter;
+    if (kills > 0) {
+        score += kills * (100 * currentLevel);
+    }
 
     if (levelComplete) {
         currentState = LEVEL_COMPLETE;
@@ -388,6 +402,7 @@ void Game::UpdateReloadCooldown(float deltaTime) {
 }
 
 void Game::UpdateBullets(float deltaTime) {
+    int enemiesBefore = (int)enemies.size();
     CombatSystem::UpdateBullets(
         deltaTime,
         bullets,
@@ -396,6 +411,12 @@ void Game::UpdateBullets(float deltaTime) {
             return DetectCollision(ent, x, y);
         }
     );
+
+    int enemiesAfter = (int)enemies.size(); // check for bullets killing enemies
+    int kills = enemiesBefore - enemiesAfter;
+    if (kills > 0) {
+        score += kills * (100 * currentLevel);
+    }
 }
 
 void Game::UpdateHealthItems() {
@@ -535,7 +556,25 @@ void Game::UpdateLevelComplete() {
 void Game::UpdateGameOver() {
     // Handle game over logic (e.g., show message, wait for input)
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    static bool gPressedLastFrame = false;
+    
+    // Reset high score with 'G' key
+    if (keystate[SDL_SCANCODE_G]) {
+        if (!gPressedLastFrame) {
+            ResetHighScore();
+            highScoreResetInGameOver = true;
+        }
+        gPressedLastFrame = true;
+    } else {
+        gPressedLastFrame = false;
+    }
+    
     if (keystate[SDL_SCANCODE_RETURN]) {
+        // Save current run to high score before resetting
+        if (!highScoreResetInGameOver) {
+            SaveHighScore();
+        }
+        
         // Reset game state
         currentLevel = 1;
         player.x = screenWidth / 2;
@@ -586,6 +625,8 @@ void Game::UpdateGameOver() {
         playerHP = 30;
         playerMaxHP = 30;
         playerInvulnTimer = 0.0f;
+        score = 0;
+        highScoreResetInGameOver = false;
     }
 }
 
@@ -668,6 +709,7 @@ void Game::RenderGameScene() {
     SDL_RenderFillRect(renderer, &playerRect);
     PlayerHP();
     DisplayAmmo();
+    DisplayScore();
     
     //draw enemies
     for (auto &e : enemies)
@@ -847,12 +889,122 @@ void Game::DisplayAmmo() {
     }
 }
 
+void Game::DisplayScore() {
+    static TTF_Font* scoreFont = TTF_OpenFont("BitcountGridDouble.ttf", 18);
+    if (!scoreFont) {
+        return;
+    }
+
+    // Display current score and dynamic high score (current score if beating the record)
+    int displayHighScore = (score > highScore) ? score : highScore;
+    char scoreText[64];
+    std::snprintf(scoreText, sizeof(scoreText), "Score: %d  |  High: %d", score, displayHighScore);
+
+    SDL_Color textColor = {255, 255, 255, 255};
+    SDL_Surface* scoreSurface = TTF_RenderText_Solid(scoreFont, scoreText, textColor);
+    if (!scoreSurface) {
+        return;
+    }
+
+    SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+    if (!scoreTexture) {
+        SDL_FreeSurface(scoreSurface);
+        return;
+    }
+
+    const int padding = 10;
+    SDL_Rect bgRect = {padding - 6, padding - 4, scoreSurface->w + 12, scoreSurface->h + 8};
+    SDL_SetRenderDrawColor(renderer, 40, 40, 40, 200);
+    SDL_RenderFillRect(renderer, &bgRect);
+
+    SDL_Rect textRect = {padding, padding, scoreSurface->w, scoreSurface->h};
+    SDL_RenderCopy(renderer, scoreTexture, nullptr, &textRect);
+
+    SDL_DestroyTexture(scoreTexture);
+    SDL_FreeSurface(scoreSurface);
+}
+
+void Game::LoadHighScore() {
+    std::ifstream file("highscore.txt");
+    if (file.is_open()) {
+        file >> highScore;
+        file.close();
+    } else {
+        highScore = 0;
+    }
+}
+
+void Game::SaveHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        std::ofstream file("highscore.txt");
+        if (file.is_open()) {
+            file << highScore;
+            file.close();
+        }
+    }
+}
+
+void Game::ResetHighScore() {
+    highScore = 0;
+    std::ofstream file("highscore.txt");
+    if (file.is_open()) {
+        file << 0;
+        file.close();
+    }
+}
+
 void Game::RenderGameOver() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
     menu->Render("Game Over! Press ENTER", screenWidth, screenHeight);
+
+    // Render score info
+    static TTF_Font* scoreFont = TTF_OpenFont("BitcountGridDouble.ttf", 24);
+    if (scoreFont) {
+        char scoreText[96];
+        std::snprintf(scoreText, sizeof(scoreText), "Score: %d  |  High Score: %d", score, highScore);
+
+        SDL_Color textColor = {255, 255, 255, 255};
+        SDL_Surface* scoreSurface = TTF_RenderText_Solid(scoreFont, scoreText, textColor);
+        if (scoreSurface) {
+            SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+            if (scoreTexture) {
+                SDL_Rect scoreRect = {
+                    (screenWidth - scoreSurface->w) / 2,
+                    screenHeight / 2 + 80,
+                    scoreSurface->w,
+                    scoreSurface->h
+                };
+                SDL_RenderCopy(renderer, scoreTexture, nullptr, &scoreRect);
+                SDL_DestroyTexture(scoreTexture);
+            }
+            SDL_FreeSurface(scoreSurface);
+        }
+    }
+
+    // Render reset instruction
+    static TTF_Font* smallFont = TTF_OpenFont("BitcountGridDouble.ttf", 14);
+    if (smallFont) {
+        SDL_Color smallColor = {150, 150, 150, 255};
+        SDL_Surface* resetSurface = TTF_RenderText_Solid(smallFont, "Press G to reset high score", smallColor);
+        if (resetSurface) {
+            SDL_Texture* resetTexture = SDL_CreateTextureFromSurface(renderer, resetSurface);
+            if (resetTexture) {
+                SDL_Rect resetRect = {
+                    (screenWidth - resetSurface->w) / 2,
+                    screenHeight / 2 + 140,
+                    resetSurface->w,
+                    resetSurface->h
+                };
+                SDL_RenderCopy(renderer, resetTexture, nullptr, &resetRect);
+                SDL_DestroyTexture(resetTexture);
+            }
+            SDL_FreeSurface(resetSurface);
+        }
+    }
 
     SDL_RenderPresent(renderer);
 }
