@@ -458,6 +458,8 @@ void Game::UpdateLevelComplete() {
     if (keystate[SDL_SCANCODE_RETURN]) {
         currentLevel++;
         enemies.clear();
+        bullets.clear();
+        weaponItems.clear();
         SpawnSystem::SpawnEnemies(
             5 + currentLevel,
             enemies,
