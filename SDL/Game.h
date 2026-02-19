@@ -103,6 +103,7 @@ class Game {
         void RenderPauseOverlay();
         void RenderMenu();
         void RenderPauseMenu();
+        void RenderGameScene();
         void RenderGame();
         void RenderLevelComplete();
         void RenderGameOver();
@@ -111,7 +112,6 @@ class Game {
         SDL_Window* window;
         SDL_Renderer* renderer;
         bool running;
-        bool paused;
         Uint32 lastTime;
         int screenWidth;
         int screenHeight;

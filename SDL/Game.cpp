@@ -18,7 +18,6 @@
 // ---------------- Constructor ----------------
 Game::Game() {
     running = false;
-    paused = false;
     lastTime = 0;
     window = nullptr;
     renderer = nullptr;
@@ -159,7 +158,7 @@ bool Game::Init() {
         return false;
     }
 
-    paused = false;
+    previousState = currentState;
     running = true;
     menu = new Menu(renderer);
     return true;
@@ -178,12 +177,10 @@ void Game::HandleEvents() {
         else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
             previousState = currentState;
             currentState = PAUSED;
-            paused = true;
         }
         else if (event.type == SDL_APP_DIDENTERFOREGROUND) {
-            if (paused && currentState == PAUSED) {
+            if (currentState == PAUSED) {
                 currentState = previousState;
-                paused = false;
             }
         }
     }
@@ -228,12 +225,11 @@ void Game::HandlePauseInput() {
     static bool escPressedLastFrame = false;
     if (keystate[SDL_SCANCODE_ESCAPE]) {
         if (!escPressedLastFrame) {
-            if (currentState == PLAYING) {
+            if (currentState != PAUSED) {
+                previousState = currentState;
                 currentState = PAUSED;
-                paused = true;
-            } else if (currentState == PAUSED) {
-                currentState = PLAYING;
-                paused = false;
+            } else {
+                currentState = previousState;
             }
         }
         escPressedLastFrame = true;
@@ -618,7 +614,9 @@ void Game::Render() {
 }   
 
 void Game::RenderPauseMenu() {
-    RenderGame();
+    RenderGameScene();
+    RenderPauseOverlay();
+    SDL_RenderPresent(renderer);
 }
 
 void Game::RenderMenu() {
@@ -642,6 +640,14 @@ void Game::RenderLevelComplete() {
 }
 
 void Game::RenderGame() {
+    RenderGameScene();
+
+    //update screen, swaps the back buffer to the screen
+    //present
+    SDL_RenderPresent(renderer);
+}
+
+void Game::RenderGameScene() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -719,12 +725,6 @@ void Game::RenderGame() {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
-
-    RenderPauseOverlay();
-
-    //update screen, swaps the back buffer to the screen
-    //present
-    SDL_RenderPresent(renderer);
 }
 
 void Game::RenderPauseOverlay() {
