@@ -94,6 +94,7 @@ class Game {
         void UpdateCollision(float deltaTime, float dx, float dy);
         void PlayerHP();
         void DisplayAmmo();
+        void DisplayScore();
 
         // ====== Menu / Rendering ======
         void UpdateMenu();
@@ -115,6 +116,7 @@ class Game {
         Uint32 lastTime;
         int screenWidth;
         int screenHeight;
+        int score;
 
         double Clamp(double a, double min, double max);
     };
