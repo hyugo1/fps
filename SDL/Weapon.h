@@ -18,7 +18,6 @@ class Weapon {
 public:
     enum WeaponType { PISTOL, SHOTGUN, RIFLE, MACHINEGUN };
 
-    Weapon();
     Weapon(WeaponType type = PISTOL);
 
     WeaponType GetType() const;
@@ -43,7 +42,7 @@ private:
     int bulletSpeed;
     int bulletDamage;
     int requiredLevel;
-    int reload_cooldown;
+    float reload_cooldown;
     int magSize;
     int currentAmmo;
     bool isReloading;

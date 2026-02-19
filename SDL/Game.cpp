@@ -37,14 +37,19 @@ Game::Game() {
     player.height = PLAYER_SIZE;
     tileSize = TILE_SIZE;
     playerMeleeDamage = 25;
+
+    int playerTileX = (int)((player.x + player.width * 0.5f) / tileSize);
+    int playerTileY = (int)((player.y + player.height * 0.5f) / tileSize);
     
     srand(time(nullptr)); // set rand before using it in map
     //map
     for(int y = 0; y < mapHeight; y++) {
         for(int x = 0; x < mapWidth; x++) {
+            bool nearPlayerSpawn = std::abs(x - playerTileX) <= 1 && std::abs(y - playerTileY) <= 1;
+
             if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
                 map[y * mapWidth + x] = 1; // border wall
-            else if(rand() % 10 == 0)
+            else if(!nearPlayerSpawn && rand() % 10 == 0)
                 map[y * mapWidth + x] = 2; // random wall
             else
                 map[y * mapWidth + x] = 0; // floor
@@ -575,7 +580,7 @@ void Game::RenderMenu() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    menu->Render("Press ENTER to Start");
+    menu->Render("Press ENTER to Start", screenWidth, screenHeight);
 
     SDL_RenderPresent(renderer);
 }
@@ -585,7 +590,7 @@ void Game::RenderLevelComplete() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    menu->Render("Level Complete! Press ENTER");
+    menu->Render("Level Complete! Press ENTER", screenWidth, screenHeight);
 
     SDL_RenderPresent(renderer);
 }
@@ -603,6 +608,11 @@ void Game::RenderGame() {
         (int)(player.y - cameraY), 
         (int)player.width, (int)player.height
     };
+    if (playerInvulnTimer > 0.0f)
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
+    else
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        
     SDL_RenderFillRect(renderer, &playerRect);
     PlayerHP();
     DisplayAmmo();
@@ -612,10 +622,6 @@ void Game::RenderGame() {
         e.Render(cameraX, cameraY, renderer);
     EnemyHP();
     
-    if (playerInvulnTimer > 0.0f)
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
-    else
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
@@ -788,7 +794,7 @@ void Game::RenderGameOver() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    menu->Render("Game Over! Press ENTER");
+    menu->Render("Game Over! Press ENTER", screenWidth, screenHeight);
 
     SDL_RenderPresent(renderer);
 }

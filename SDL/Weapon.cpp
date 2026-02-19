@@ -13,7 +13,7 @@ Weapon::Weapon(WeaponType type) : type(type), cooldown(0.0f) {
             requiredLevel = 1;
             magSize = 18;
             currentAmmo = magSize;
-            reload_cooldown = 0;
+            reload_cooldown = 0.0f;
             isReloading = false;
             reloadTimer = 0.0f;
             reloadDuration = 2.0f;
@@ -25,7 +25,7 @@ Weapon::Weapon(WeaponType type) : type(type), cooldown(0.0f) {
             requiredLevel = 2;
             magSize = 22;
             currentAmmo = magSize;
-            reload_cooldown = 0;
+            reload_cooldown = 0.0f;
             isReloading = false;
             reloadTimer = 0.0f;
             reloadDuration = 1.5f;
@@ -37,7 +37,7 @@ Weapon::Weapon(WeaponType type) : type(type), cooldown(0.0f) {
             requiredLevel = 3;
             magSize = 5;
             currentAmmo = magSize;
-            reload_cooldown = 0;
+            reload_cooldown = 0.0f;
             isReloading = false;
             reloadTimer = 0.0f;
             reloadDuration = 2.5f;
@@ -49,7 +49,7 @@ Weapon::Weapon(WeaponType type) : type(type), cooldown(0.0f) {
             requiredLevel = 4;
             magSize = 100;
             currentAmmo = magSize;
-            reload_cooldown = 0;
+            reload_cooldown = 0.0f;
             isReloading = false;
             reloadTimer = 0.0f;
             reloadDuration = 3.0f;
@@ -57,20 +57,6 @@ Weapon::Weapon(WeaponType type) : type(type), cooldown(0.0f) {
     }
 }
     
-Weapon::Weapon() {
-    type = PISTOL;
-    fireRate = 2.0f;
-    bulletSpeed = 400;
-    bulletDamage = 200;
-    requiredLevel = 1;
-    magSize = 18;
-    currentAmmo = magSize;
-    reload_cooldown = 0;
-    isReloading = false;
-    reloadTimer = 0.0f;
-    reloadDuration = 2.0f;
-}
-
 Weapon::WeaponType Weapon::GetType() const {
     return type;
 }
@@ -97,10 +83,11 @@ void Weapon::Fire(float startX, float startY, float targetX, float targetY, std:
     float dx = targetX - startX;
     float dy = targetY - startY;
     float length = sqrt(dx*dx + dy*dy);
-    if(length != 0) {
-        dx /= length;
-        dy /= length;
+    if (length == 0.0f) {
+        return;
     }
+    dx /= length;
+    dy /= length;
 
     if(type == SHOTGUN) {
         // Fire 5 bullets with a spread
