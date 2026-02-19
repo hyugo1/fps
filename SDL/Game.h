@@ -95,6 +95,9 @@ class Game {
         void PlayerHP();
         void DisplayAmmo();
         void DisplayScore();
+        void LoadHighScore();
+        void SaveHighScore();
+        void ResetHighScore();
 
         // ====== Menu / Rendering ======
         void UpdateMenu();
@@ -117,6 +120,8 @@ class Game {
         int screenWidth;
         int screenHeight;
         int score;
+        int highScore;
+        bool highScoreResetInGameOver;
 
         double Clamp(double a, double min, double max);
     };
