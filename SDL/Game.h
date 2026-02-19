@@ -27,6 +27,7 @@ class Game {
         // ====== Game State ======
         enum GameState { MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
         GameState currentState;
+        GameState previousState;
         int currentLevel;
         int getLevel();
 

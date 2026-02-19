@@ -23,6 +23,7 @@ Game::Game() {
     window = nullptr;
     renderer = nullptr;
     currentState = MENU;
+    previousState = currentState;
     currentLevel = 1;
     playerHP = 30;
     playerMaxHP = 30;
@@ -175,8 +176,15 @@ void Game::HandleEvents() {
             running = false;
         }
         else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
+            previousState = currentState;
             currentState = PAUSED;
             paused = true;
+        }
+        else if (event.type == SDL_APP_DIDENTERFOREGROUND) {
+            if (paused && currentState == PAUSED) {
+                currentState = previousState;
+                paused = false;
+            }
         }
     }
 }
