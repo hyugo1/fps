@@ -19,7 +19,7 @@ class Enemy {
         float GetX() const;
         float GetY() const;
         const Entity& getBody() const;
-        void TakeDamage(int &amount);
+        void TakeDamage(int amount);
         bool IsDead() const;
         int GetHP() const;
         int GetMaxHP() const;

@@ -19,11 +19,7 @@ void UpdateEnemy(
     int playerMeleeDamage,
     const std::function<bool(const Entity&, float, float)>& collisionFunc,
     bool meleePressed,
-    bool& levelComplete
-) {
-    if (enemies.empty()) {
-        levelComplete = true;
-    }
+    bool& levelComplete) {
 
     if (meleePressed) {
         for (auto& enemy : enemies) {
@@ -42,6 +38,10 @@ void UpdateEnemy(
             [](Enemy& enemy) { return enemy.IsDead(); }),
         enemies.end()
     );
+    // Check if all enemies are defeated after updating so its on the same frame as the last enemy dies, not the next frame
+    if (enemies.empty()) {
+        levelComplete = true;
+    }
 }
 
 void UpdatePlayerCollision(

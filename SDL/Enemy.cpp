@@ -37,7 +37,7 @@ const Entity& Enemy::getBody() const {
     return body;
 }
 
-void Enemy::TakeDamage(int &amount) {
+void Enemy::TakeDamage(int amount) {
     health -= amount;
 }
 
@@ -92,7 +92,8 @@ void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float,
     float dx = playerX - body.x;
     float dy = playerY - body.y;
     float distance = sqrt(dx*dx + dy*dy);
-    if(distance < maxdistance) { 
+    // distance check to prevent division by zero and only move if player is within maxdistance 
+    if(distance > 0.0f && distance < maxdistance) { 
         dx /= distance;
         dy /= distance;
         float nextX = body.x + dx * speed * deltaTime;

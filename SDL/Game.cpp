@@ -38,6 +38,7 @@ Game::Game() {
     tileSize = TILE_SIZE;
     playerMeleeDamage = 25;
     
+    srand(time(nullptr)); // set rand before using it in map
     //map
     for(int y = 0; y < mapHeight; y++) {
         for(int x = 0; x < mapWidth; x++) {
@@ -50,7 +51,6 @@ Game::Game() {
         }
     }
     //enemies
-    srand(time(nullptr));
     SpawnSystem::SpawnEnemies(
         5,
         enemies,
