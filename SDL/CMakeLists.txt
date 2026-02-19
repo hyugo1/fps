@@ -19,7 +19,7 @@ pkg_check_modules(SDL2_TTF REQUIRED SDL2_ttf)
 include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
 link_directories(${SDL2_LIBRARY_DIRS})
 
-add_executable(fps SDL2.cpp Game.cpp Weapon.cpp Enemy.cpp)
+add_executable(fps SDL2.cpp Game.cpp Weapon.cpp Enemy.cpp CombatSystem.cpp SpawnSystem.cpp)
 
 target_link_libraries(fps ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES})
 

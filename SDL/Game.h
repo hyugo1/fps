@@ -8,6 +8,7 @@
 #include <SDL2/SDL.h>
 #include "Entity.h"
 #include "Weapon.h"
+#include "Items.h"
 
 class Menu;
 
@@ -38,7 +39,6 @@ class Game {
 
         // ====== Enemies ======
         std::vector<Enemy> enemies;
-        void SpawnEnemies(int count);
         void UpdateEnemy(float deltaTime);
         void EnemyHP();
 
@@ -50,8 +50,8 @@ class Game {
         void DetectMouseClick();
         
         // ==== Weapons ====
-        enum WeaponType { PISTOL, RIFLE, SHOTGUN, MACHINEGUN };
-        WeaponType currentWeapon = PISTOL;
+        // enum WeaponType { PISTOL, RIFLE, SHOTGUN, MACHINEGUN };
+        // WeaponType currentWeapon = PISTOL;
         std::vector<Weapon> playerWeapons;
         int currentWeaponIndex = 0;
         bool inventoryOpen = false;
@@ -59,16 +59,9 @@ class Game {
         void HandleReloadInput();
 
         // ==== Items ====
-        struct HealthItem {
-            float x, y;
-            float width, height;
-            bool collected = false;
-        };
         std::vector<HealthItem> healthItems;
         std::vector<WeaponItem> weaponItems;
-        void SpawnHealthItems(int count);
         void UpdateHealthItems();
-        void SpawnWeaponItems(int count);
         void UpdateWeaponItems();
 
         

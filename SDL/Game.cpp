@@ -12,6 +12,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include "Weapon.h"
+#include "CombatSystem.h"
+#include "SpawnSystem.h"
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -49,39 +51,24 @@ Game::Game() {
     }
     //enemies
     srand(time(nullptr));
-    SpawnEnemies(5);
+    SpawnSystem::SpawnEnemies(
+        5,
+        enemies,
+        player,
+        currentLevel,
+        mapWidth,
+        mapHeight,
+        tileSize,
+        [this](const Entity& ent, float x, float y) {
+            return DetectCollision(ent, x, y);
+        }
+    );
 
     //weapons
     playerWeapons.push_back(Weapon(Weapon::PISTOL));
     currentWeaponIndex = 0;
 }
 
-void Game::SpawnEnemies(int count) {
-    const float MIN_DISTANCE = 200.0f;
-    for(int i = 0; i < count; i++) {
-        float spawnX, spawnY;
-        bool collidesWithWall;
-        float distance;
-        do {
-            spawnX = rand() % (mapWidth * tileSize);
-            spawnY = rand() % (mapHeight * tileSize);
-            // Check wall collision
-            Entity temp; // create a temporary entity for collision checking
-            temp.x = spawnX;
-            temp.y = spawnY;
-            temp.width = PLAYER_SIZE;
-            temp.height = PLAYER_SIZE;
-            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
-            // Check distance from player
-            float dx = spawnX - player.x;
-            float dy = spawnY - player.y;
-            distance = sqrt(dx*dx + dy*dy);
-        } while(collidesWithWall || distance < MIN_DISTANCE); // ensure enemies don't spawn too close to the player or inside walls
-        Enemy::EnemyType type =
-            static_cast<Enemy::EnemyType>(rand() % 3);
-        enemies.push_back(Enemy(spawnX, spawnY, type, currentLevel));
-    }
-}
 int Game::getLevel() {
     return currentLevel;
 }
@@ -140,14 +127,6 @@ bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
     return false;
 }
 
-// Axis-Aligned Bounding Box collision detection
-bool AABB(const Entity& a, const Entity& b) {
-    return (a.x < b.x + b.width &&
-            a.x + a.width > b.x &&
-            a.y < b.y + b.height &&
-            a.y + a.height > b.y);
-}
-
 bool Game::Init() {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
@@ -191,83 +170,6 @@ void Game::HandleEvents() {
     }
 }
 
-void Game::SpawnHealthItems(int count) {
-    const float MIN_DISTANCE = 100.0f; // Don't spawn too close to player
-    for(int i = 0; i < count; i++) {
-        float spawnX, spawnY;
-        bool collidesWithWall;
-        float distance;
-
-        do {
-            spawnX = rand() % (mapWidth * tileSize);
-            spawnY = rand() % (mapHeight * tileSize);
-
-            Entity temp;
-            temp.x = spawnX;
-            temp.y = spawnY;
-            temp.width = PLAYER_SIZE;
-            temp.height = PLAYER_SIZE;
-
-            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
-
-            float dx = spawnX - player.x;
-            float dy = spawnY - player.y;
-            distance = sqrt(dx*dx + dy*dy);
-
-        } while(collidesWithWall || distance < MIN_DISTANCE);
-
-        HealthItem item;
-        item.x = spawnX;
-        item.y = spawnY;
-        item.width = PLAYER_SIZE / 2;
-        item.height = PLAYER_SIZE / 2;
-        healthItems.push_back(item);
-    }
-}
-
-void Game::SpawnWeaponItems(int count) {
-    const float MIN_DISTANCE = 100.0f;
-
-    for (int i = 0; i < count; i++) {
-        float spawnX, spawnY;
-        bool collidesWithWall;
-        float distance;
-
-        do {
-            spawnX = rand() % (mapWidth * tileSize);
-            spawnY = rand() % (mapHeight * tileSize);
-
-            Entity temp;
-            temp.x = spawnX;
-            temp.y = spawnY;
-            temp.width = PLAYER_SIZE;
-            temp.height = PLAYER_SIZE;
-
-            collidesWithWall = DetectCollision(temp, spawnX, spawnY);
-
-            float dx = spawnX - player.x;
-            float dy = spawnY - player.y;
-            distance = sqrt(dx*dx + dy*dy);
-
-        } while(collidesWithWall || distance < MIN_DISTANCE);
-
-        WeaponItem item;
-        item.x = spawnX;
-        item.y = spawnY;
-        item.width = PLAYER_SIZE / 2;
-        item.height = PLAYER_SIZE / 2;
-       
-        if (currentLevel == 2) {
-            item.type = Weapon::RIFLE;
-        } else if (currentLevel == 3) {
-            item.type = Weapon::SHOTGUN;
-        } else {
-            item.type = Weapon::MACHINEGUN;
-        }
-
-        weaponItems.push_back(item);
-    }
-}
 
 
 void Game::Update(float deltaTime) {
@@ -368,28 +270,22 @@ void Game::UpdatePlayer(float deltaTime) {
 
 void Game::UpdateEnemy(float deltaTime) {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
-    if (enemies.empty()) {
+    bool levelComplete = false;
+    CombatSystem::UpdateEnemy(
+        deltaTime,
+        enemies,
+        player,
+        playerMeleeDamage,
+        [this](const Entity& ent, float x, float y) {
+            return DetectCollision(ent, x, y);
+        },
+        keystate[SDL_SCANCODE_SPACE],
+        levelComplete
+    );
+
+    if (levelComplete) {
         currentState = LEVEL_COMPLETE;
     }
-    if (keystate[SDL_SCANCODE_SPACE]) {
-        for (auto &e : enemies) {
-            if (AABB(player, e.getBody())) {
-                e.TakeDamage(playerMeleeDamage);
-            }
-        }
-    }
-    for (auto &e : enemies) {
-        e.Update(deltaTime,
-         [this](const Entity& ent, float x, float y) {
-             return DetectCollision(ent, x, y);
-         },
-         player.x, player.y);
-    }
-    enemies.erase(
-        std::remove_if(enemies.begin(), enemies.end(),
-            [](Enemy &e) { return e.IsDead(); }),
-        enemies.end()
-    );
 }
 
 void Game::UpdateCamera(float deltaTime, float dx, float dy) {
@@ -405,26 +301,18 @@ void Game::UpdateCamera(float deltaTime, float dx, float dy) {
 }
 
 void Game::UpdateCollision(float deltaTime, float dx, float dy) {
-    float speed = 200.0f; //200pixels per second
-    float nextX = player.x + dx * speed * deltaTime;
-    float nextY = player.y + dy * speed * deltaTime;
-    // X collision
-    if(!DetectCollision(player, nextX, player.y))
-        player.x = nextX;
-    // Y collision
-    if(!DetectCollision(player, player.x, nextY))
-        player.y = nextY;
-
-    for (auto &e : enemies) {
-        Entity enemyBody = e.getBody();
-        // Check collision with player and enemy
-        if (AABB(player, enemyBody)) {
-                if (playerInvulnTimer <= 0.0f) {
-                    playerHP -= 10;
-                    playerInvulnTimer = 1.0f;
-                }
-            }
+    CombatSystem::UpdatePlayerCollision(
+        deltaTime,
+        dx,
+        dy,
+        player,
+        enemies,
+        playerInvulnTimer,
+        playerHP,
+        [this](const Entity& ent, float x, float y) {
+            return DetectCollision(ent, x, y);
         }
+    );
 }
 
 void Game::UpdateClamp() {
@@ -461,36 +349,13 @@ void Game::UpdateReloadCooldown(float deltaTime) {
 }
 
 void Game::UpdateBullets(float deltaTime) {
-    // Update bullets
-    for (auto &b : bullets) {
-        b.x += b.dx * b.speed * deltaTime;
-        b.y += b.dy * b.speed * deltaTime;
-    }
-    // Remove bullets that hit walls
-    bullets.erase(
-        std::remove_if(bullets.begin(), bullets.end(),
-            [&](Bullet &b) {
-                Entity bulletEntity{b.x, b.y, 5, 5};
-                return DetectCollision(bulletEntity, b.x, b.y);
-            }),
-        bullets.end()
-    );
-    // Bullet–Enemy collision
-    for (auto &b : bullets) {
-        Entity bulletEntity{b.x, b.y, 5, 5};
-
-        for (auto &e : enemies) {
-            if (AABB(bulletEntity, e.getBody())) {
-                e.TakeDamage(b.damage);
-                b.toDelete = true;
-            }
+    CombatSystem::UpdateBullets(
+        deltaTime,
+        bullets,
+        enemies,
+        [this](const Entity& ent, float x, float y) {
+            return DetectCollision(ent, x, y);
         }
-    }
-    // Remove bullets marked for deletion
-    bullets.erase(
-        std::remove_if(bullets.begin(), bullets.end(),
-            [this](const Bullet &b){ return b.toDelete || DetectCollision(Entity{b.x,b.y,5,5}, b.x,b.y); }),
-        bullets.end()
     );
 }
 
@@ -498,7 +363,7 @@ void Game::UpdateHealthItems() {
     for (auto &h : healthItems) {
         if (!h.collected) {
             Entity itemEntity{h.x, h.y, h.width, h.height};
-            if (AABB(player, itemEntity)) {
+            if (CombatSystem::AABB(player, itemEntity)) {
                 playerHP += (int)(playerMaxHP * 0.2f); // heal 20%
                 if (playerHP > playerMaxHP)
                     playerHP = playerMaxHP;
@@ -547,7 +412,7 @@ void Game::UpdateWeaponItems() {
     for (auto &w : weaponItems) {
         if (!w.collected) {
             Entity itemEntity{w.x, w.y, w.width, w.height};
-            if (AABB(player, itemEntity)) {
+            if (CombatSystem::AABB(player, itemEntity)) {
                 // Add weapon to inventory if not already owned
                 bool alreadyOwned = false;
                 for (auto &wp : playerWeapons) {
@@ -573,22 +438,14 @@ void Game::UpdateWeaponItems() {
 }
 
 void Game::DetectMouseClick() {
-    int mouseX, mouseY;
-    Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
-
-    if(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-        float worldMouseX = mouseX + cameraX;
-        float worldMouseY = mouseY + cameraY;
-
-        if (!playerWeapons.empty()) {
-            playerWeapons[currentWeaponIndex].Fire(
-                player.x + player.width / 2, 
-                player.y + player.height / 2,
-                worldMouseX, worldMouseY,
-                bullets
-            );
-        }
-    }
+    CombatSystem::DetectMouseClick(
+        cameraX,
+        cameraY,
+        player,
+        playerWeapons,
+        currentWeaponIndex,
+        bullets
+    );
 }
 
 void Game::UpdateLevelComplete() {
@@ -596,9 +453,41 @@ void Game::UpdateLevelComplete() {
     if (keystate[SDL_SCANCODE_RETURN]) {
         currentLevel++;
         enemies.clear();
-        SpawnEnemies(5 + currentLevel); // Spawn more enemies for next level
-        SpawnHealthItems(2); //fixed 2 health items per level
-        SpawnWeaponItems(1); // spawn level weapon pickup (shotgun/rifle/machinegun)
+        SpawnSystem::SpawnEnemies(
+            5 + currentLevel,
+            enemies,
+            player,
+            currentLevel,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnHealthItems(
+            2,
+            healthItems,
+            player,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnWeaponItems(
+            1,
+            weaponItems,
+            player,
+            currentLevel,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
         currentState = PLAYING;
     }
 }
@@ -611,8 +500,41 @@ void Game::UpdateGameOver() {
         player.x = screenWidth / 2;
         player.y = screenHeight / 2;
         enemies.clear();
-        SpawnEnemies(5);
-        SpawnHealthItems(2);
+        SpawnSystem::SpawnEnemies(
+            5,
+            enemies,
+            player,
+            currentLevel,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnHealthItems(
+            2,
+            healthItems,
+            player,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnWeaponItems(
+            1,
+            weaponItems,
+            player,
+            currentLevel,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
         currentState = PLAYING;
         playerHP = 30;
         playerInvulnTimer = 0.0f;
