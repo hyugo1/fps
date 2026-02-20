@@ -34,6 +34,13 @@ Game::Game() {
     score = 0;
     highScore = 0;
     highScoreResetInGameOver = false;
+    shootAnimTimer = 0.0f;
+    shootAnimDuration = 0.08f;
+    lastShotDirX = 1.0f;
+    lastShotDirY = 0.0f;
+    playerDying = false;
+    playerDeathTimer = 0.0f;
+    playerDeathDuration = 0.6f;
     LoadHighScore();
     cameraX = screenWidth / 2;
     cameraY = screenHeight / 2;
@@ -302,16 +309,34 @@ void Game::HandleReloadInput() {
 }
 
 void Game::UpdatePlayer(float deltaTime) {
+    // If player is currently in death animation, update timer and check if we should switch to game over screen
+    if (playerDying) {
+        playerDeathTimer -= deltaTime;
+        if (playerDeathTimer <= 0.0f) {
+            playerDeathTimer = 0.0f;
+            currentState = GAME_OVER;
+        }
+        return;
+    }
+
     if (playerInvulnTimer > 0.0f)
         playerInvulnTimer -= deltaTime;
 
     if (playerHP <= 0) {
         highScoreResetInGameOver = false;
         SaveHighScore();
-        currentState = GAME_OVER;
+        playerDying = true;
+        playerDeathTimer = playerDeathDuration;
+        return;
     }
     if (shootCooldown > 0.0f)
         shootCooldown -= deltaTime;
+    if (shootAnimTimer > 0.0f) {
+        shootAnimTimer -= deltaTime;
+        if (shootAnimTimer < 0.0f) {
+            shootAnimTimer = 0.0f;
+        }
+    }
 }
 
 void Game::UpdateEnemy(float deltaTime) {
@@ -377,6 +402,9 @@ void Game::UpdateClamp() {
 
 void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdatePlayer(deltaTime);
+        if (playerDying) {
+           return;
+        }
         UpdateCollision(deltaTime, dx, dy);
         UpdateHealthItems(); 
         UpdateWeaponItems();
@@ -497,6 +525,20 @@ void Game::UpdateWeaponItems() {
 }
 
 void Game::DetectMouseClick() {
+    int mouseX = 0;
+    int mouseY = 0;
+    SDL_GetMouseState(&mouseX, &mouseY);
+    float worldMouseX = mouseX + cameraX;
+    float worldMouseY = mouseY + cameraY;
+    float aimDx = worldMouseX - (player.x + player.width * 0.5f);
+    float aimDy = worldMouseY - (player.y + player.height * 0.5f);
+    float aimLen = std::sqrt(aimDx * aimDx + aimDy * aimDy);
+    if (aimLen > 0.0f) {
+        lastShotDirX = aimDx / aimLen;
+        lastShotDirY = aimDy / aimLen;
+    }
+
+    size_t bulletsBefore = bullets.size();
     CombatSystem::DetectMouseClick(
         cameraX,
         cameraY,
@@ -505,6 +547,10 @@ void Game::DetectMouseClick() {
         currentWeaponIndex,
         bullets
     );
+    // If a shot was fired, start recoil animation
+    if (bullets.size() > bulletsBefore) {
+        shootAnimTimer = shootAnimDuration;
+    }
 }
 
 void Game::UpdateLevelComplete() {
@@ -627,6 +673,8 @@ void Game::UpdateGameOver() {
         playerInvulnTimer = 0.0f;
         score = 0;
         highScoreResetInGameOver = false;
+        playerDying = false;
+        playerDeathTimer = 0.0f;
     }
 }
 
@@ -701,12 +749,51 @@ void Game::RenderGameScene() {
         (int)(player.y - cameraY), 
         (int)player.width, (int)player.height
     };
-    if (playerInvulnTimer > 0.0f)
+    // Apply shooting recoil animation by offsetting player position opposite to shot direction
+    if (shootAnimTimer > 0.0f) {
+        float t = shootAnimTimer / shootAnimDuration;
+        float recoil = 4.0f * t;
+        playerRect.x -= (int)(lastShotDirX * recoil);
+        playerRect.y -= (int)(lastShotDirY * recoil);
+    }
+    // Flash red when invulnerable or playerIsDying
+    if (playerDying) {
+        float progress = 1.0f - (playerDeathTimer / playerDeathDuration);
+        if (progress < 0.2f) {
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        } else {
+            float alphaScale = 1.0f - progress;
+            if (alphaScale < 0.0f) alphaScale = 0.0f;
+            Uint8 alpha = (Uint8)(255.0f * alphaScale);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
+        }
+    } else if (playerInvulnTimer > 0.0f) {
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
-    else
+    } else {
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    }
         
     SDL_RenderFillRect(renderer, &playerRect);
+    // reset blend mode after drawing player to avoid affecting other elements
+    if (playerDying) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    }
+
+    // Draw shooting flash
+    if (shootAnimTimer > 0.0f) {
+        float t = shootAnimTimer / shootAnimDuration;
+        int flashSize = (int)(6 + 6 * t);
+        float playerCenterX = playerRect.x + playerRect.w * 0.5f;
+        float playerCenterY = playerRect.y + playerRect.h * 0.5f;
+        int flashX = (int)(playerCenterX + lastShotDirX * (playerRect.w * 0.6f) - flashSize / 2);
+        int flashY = (int)(playerCenterY + lastShotDirY * (playerRect.h * 0.6f) - flashSize / 2);
+        SDL_Rect flashRect = { flashX, flashY, flashSize, flashSize };
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 255, 200, 80, 200);
+        SDL_RenderFillRect(renderer, &flashRect);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    }
     PlayerHP();
     DisplayAmmo();
     DisplayScore();
@@ -718,7 +805,7 @@ void Game::RenderGameScene() {
 
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-
+    // draw bullets
     for (auto &b : bullets) {
         SDL_Rect rect = {
             (int)(b.x - cameraX),
@@ -728,6 +815,7 @@ void Game::RenderGameScene() {
         SDL_RenderFillRect(renderer, &rect);
     }
 
+    // draw health items
     for (auto &h : healthItems) {
         if (!h.collected) {
             SDL_Rect rect = {
@@ -741,6 +829,7 @@ void Game::RenderGameScene() {
         }
     }
 
+    // draw weapon items
     for (auto &w : weaponItems) {
         if (!w.collected) {
             SDL_Rect rect = {
@@ -754,6 +843,7 @@ void Game::RenderGameScene() {
         }
     }
 
+    // draw inventory if open
     if (inventoryOpen) {
         int startX = 50;
         int startY = 50;
@@ -794,6 +884,9 @@ void Game::PlayerHP() {
 
 void Game::EnemyHP() {
     for (auto &e : enemies) {
+        if (e.IsDead()) {
+            continue;
+        }
         float hpRatio = (float)e.GetHP() / (float)e.GetMaxHP();
         Entity enemyBody = e.getBody();
         SDL_Rect hpBarBack = { (int)(enemyBody.x - cameraX), (int)(enemyBody.y - cameraY - 10), (int)enemyBody.width, 5 };

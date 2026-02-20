@@ -22,6 +22,9 @@ Enemy::Enemy(float startX, float startY, EnemyType type, int level) {
     speed = baseSpeed + (level - 1) * 2.0f;
     maxHealth = baseHealth + (level - 1) * 2;
     health = maxHealth;
+    playerIsDying = false;
+    deathDuration = 0.25f;
+    deathTimer = 0.0f;
     maxdistance = 200.0f + (level - 1) * 5.0f;
 }
 
@@ -38,11 +41,31 @@ const Entity& Enemy::getBody() const {
 }
 
 void Enemy::TakeDamage(int amount) {
+    if (playerIsDying || health <= 0) {
+        return;
+    }
+
     health -= amount;
+    // if health drops to 0 or below, start death animation
+    if (health <= 0) {
+        health = 0;
+        playerIsDying = true;
+        deathTimer = deathDuration;
+    }
 }
 
 bool Enemy::IsDead() const {
     return health <= 0;
+}
+
+// Returns true if enemy is in death animation, false if still alive or already removed
+bool Enemy::IsDying() const {
+    return playerIsDying;
+}
+
+// Returns true if enemy should be removed from game (after death animation finishes)
+bool Enemy::IsRemovable() const {
+    return playerIsDying && deathTimer <= 0.0f;
 }
 
 int Enemy::GetHP() const {
@@ -52,8 +75,15 @@ int Enemy::GetHP() const {
 int Enemy::GetMaxHP() const { 
     return maxHealth; }
 
-void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY)
-{
+void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {    
+    if (playerIsDying) {
+        deathTimer -= deltaTime;
+        if (deathTimer < 0.0f) {
+            deathTimer = 0.0f;
+        }
+        return;
+    }
+
     switch (character)
     {
         case horizontalEnemy:
@@ -104,6 +134,43 @@ void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float,
 }
 
 void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
+    // If playerIsDying, render death animation instead of normal enemy
+    if (playerIsDying) {
+        float progress = 1.0f - (deathTimer / deathDuration);
+        if (progress < 0.0f) progress = 0.0f;
+        if (progress > 1.0f) progress = 1.0f;
+
+        int expandedSize = (int)(body.width * (1.0f + 0.7f * progress));
+        int centerX = (int)(body.x + body.width * 0.5f - cameraX);
+        int centerY = (int)(body.y + body.height * 0.5f - cameraY);
+        SDL_Rect deathRect = {
+            centerX - expandedSize / 2,
+            centerY - expandedSize / 2,
+            expandedSize,
+            expandedSize
+        };
+
+        Uint8 baseR = 255;
+        Uint8 baseG = 100;
+        Uint8 baseB = 30;
+        if (character == smartEnemy) {
+            baseR = 80;
+            baseG = 220;
+            baseB = 255;
+        } else if (character == horizontalEnemy) {
+            baseR = 255;
+            baseG = 60;
+            baseB = 60;
+        }
+
+        Uint8 alpha = (Uint8)(255.0f * (1.0f - progress));
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, baseR, baseG, baseB, alpha);
+        SDL_RenderFillRect(renderer, &deathRect);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+    }
+
     //draw enemy
     SDL_Rect enemyRect = { 
         (int)(body.x - cameraX), 
