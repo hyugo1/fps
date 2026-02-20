@@ -34,7 +34,7 @@ class Enemy {
         int maxHealth;
         float speed;
         float maxdistance;
-        bool playerIsDying;
+        bool isDying;
         float deathTimer;
         float deathDuration;
         void HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);

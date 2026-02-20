@@ -22,7 +22,7 @@ Enemy::Enemy(float startX, float startY, EnemyType type, int level) {
     speed = baseSpeed + (level - 1) * 2.0f;
     maxHealth = baseHealth + (level - 1) * 2;
     health = maxHealth;
-    playerIsDying = false;
+    isDying = false;
     deathDuration = 0.25f;
     deathTimer = 0.0f;
     maxdistance = 200.0f + (level - 1) * 5.0f;
@@ -41,7 +41,7 @@ const Entity& Enemy::getBody() const {
 }
 
 void Enemy::TakeDamage(int amount) {
-    if (playerIsDying || health <= 0) {
+    if (isDying || health <= 0) {
         return;
     }
 
@@ -49,7 +49,7 @@ void Enemy::TakeDamage(int amount) {
     // if health drops to 0 or below, start death animation
     if (health <= 0) {
         health = 0;
-        playerIsDying = true;
+        isDying = true;
         deathTimer = deathDuration;
     }
 }
@@ -60,12 +60,12 @@ bool Enemy::IsDead() const {
 
 // Returns true if enemy is in death animation, false if still alive or already removed
 bool Enemy::IsDying() const {
-    return playerIsDying;
+    return isDying;
 }
 
 // Returns true if enemy should be removed from game (after death animation finishes)
 bool Enemy::IsRemovable() const {
-    return playerIsDying && deathTimer <= 0.0f;
+    return isDying && deathTimer <= 0.0f;
 }
 
 int Enemy::GetHP() const {
@@ -76,7 +76,7 @@ int Enemy::GetMaxHP() const {
     return maxHealth; }
 
 void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {    
-    if (playerIsDying) {
+    if (isDying) {
         deathTimer -= deltaTime;
         if (deathTimer < 0.0f) {
             deathTimer = 0.0f;
@@ -134,8 +134,8 @@ void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float,
 }
 
 void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
-    // If playerIsDying, render death animation instead of normal enemy
-    if (playerIsDying) {
+    // If isDying, render death animation instead of normal enemy
+    if (isDying) {
         float progress = 1.0f - (deathTimer / deathDuration);
         if (progress < 0.0f) progress = 0.0f;
         if (progress > 1.0f) progress = 1.0f;

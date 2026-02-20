@@ -528,15 +528,6 @@ void Game::DetectMouseClick() {
     int mouseX = 0;
     int mouseY = 0;
     SDL_GetMouseState(&mouseX, &mouseY);
-    float worldMouseX = mouseX + cameraX;
-    float worldMouseY = mouseY + cameraY;
-    float aimDx = worldMouseX - (player.x + player.width * 0.5f);
-    float aimDy = worldMouseY - (player.y + player.height * 0.5f);
-    float aimLen = std::sqrt(aimDx * aimDx + aimDy * aimDy);
-    if (aimLen > 0.0f) {
-        lastShotDirX = aimDx / aimLen;
-        lastShotDirY = aimDy / aimLen;
-    }
 
     size_t bulletsBefore = bullets.size();
     CombatSystem::DetectMouseClick(
@@ -549,6 +540,15 @@ void Game::DetectMouseClick() {
     );
     // If a shot was fired, start recoil animation
     if (bullets.size() > bulletsBefore) {
+        float worldMouseX = mouseX + cameraX;
+        float worldMouseY = mouseY + cameraY;
+        float aimDx = worldMouseX - (player.x + player.width * 0.5f);
+        float aimDy = worldMouseY - (player.y + player.height * 0.5f);
+        float aimLen = std::sqrt(aimDx * aimDx + aimDy * aimDy);
+        if (aimLen > 0.0f) {
+            lastShotDirX = aimDx / aimLen;
+            lastShotDirY = aimDy / aimLen;
+        }
         shootAnimTimer = shootAnimDuration;
     }
 }
@@ -675,6 +675,7 @@ void Game::UpdateGameOver() {
         highScoreResetInGameOver = false;
         playerDying = false;
         playerDeathTimer = 0.0f;
+        shootAnimTimer = 0.0f;
     }
 }
 

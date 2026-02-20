@@ -144,12 +144,6 @@ void UpdateBullets(
             }),
         bullets.end()
     );
-
-    enemies.erase(
-        std::remove_if(enemies.begin(), enemies.end(),
-            [](Enemy& enemy) { return enemy.IsRemovable(); }),
-        enemies.end()
-    );
 }
 
 }
