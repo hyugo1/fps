@@ -81,6 +81,15 @@ class Game {
         int cameraY;
         void UpdateCamera(float deltaTime, float dx, float dy);
         void UpdateClamp();
+
+        // ====== Animation ======
+        float shootAnimTimer; // time left for shooting animation, used to show muzzle flash and prevent weapon switching during animation
+        float shootAnimDuration;
+        float lastShotDirX; // direction of last shot, used for recoil animation
+        float lastShotDirY;
+        bool playerDying;
+        float playerDeathTimer; // time left for player death animation, used to show death animation and prevent input during it
+        float playerDeathDuration;
         
         // ====== Game Systems ======
         void UpdateGame(float deltaTime, float dx, float dy);

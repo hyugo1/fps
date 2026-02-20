@@ -21,6 +21,8 @@ class Enemy {
         const Entity& getBody() const;
         void TakeDamage(int amount);
         bool IsDead() const;
+        bool IsDying() const;
+        bool IsRemovable() const;
         int GetHP() const;
         int GetMaxHP() const;
     private:
@@ -32,6 +34,9 @@ class Enemy {
         int maxHealth;
         float speed;
         float maxdistance;
+        bool isDying;
+        float deathTimer;
+        float deathDuration;
         void HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc);
         void SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY);

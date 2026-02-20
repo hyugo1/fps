@@ -23,7 +23,7 @@ void UpdateEnemy(
 
     if (meleePressed) {
         for (auto& enemy : enemies) {
-            if (AABB(player, enemy.getBody())) {
+            if (!enemy.IsDead() && AABB(player, enemy.getBody())) {
                 enemy.TakeDamage(playerMeleeDamage);
             }
         }
@@ -35,7 +35,7 @@ void UpdateEnemy(
 
     enemies.erase(
         std::remove_if(enemies.begin(), enemies.end(),
-            [](Enemy& enemy) { return enemy.IsDead(); }),
+            [](Enemy& enemy) { return enemy.IsRemovable(); }),
         enemies.end()
     );
     // Check if all enemies are defeated after updating so its on the same frame as the last enemy dies, not the next frame
@@ -68,7 +68,7 @@ void UpdatePlayerCollision(
 
     for (auto& enemy : enemies) {
         if (AABB(player, enemy.getBody())) {
-            if (playerInvulnTimer <= 0.0f) {
+            if (!enemy.IsDead() && playerInvulnTimer <= 0.0f) {
                 playerHP -= 10;
                 playerInvulnTimer = 1.0f;
             }
@@ -129,7 +129,7 @@ void UpdateBullets(
         Entity bulletEntity{bullet.x, bullet.y, 5, 5};
 
         for (auto& enemy : enemies) {
-            if (AABB(bulletEntity, enemy.getBody())) {
+            if (!enemy.IsDead() && AABB(bulletEntity, enemy.getBody())) {
                 enemy.TakeDamage(bullet.damage);
                 bullet.toDelete = true;
             }
@@ -143,12 +143,6 @@ void UpdateBullets(
                 return bullet.toDelete || collisionFunc(bulletEntity, bullet.x, bullet.y);
             }),
         bullets.end()
-    );
-
-    enemies.erase(
-        std::remove_if(enemies.begin(), enemies.end(),
-            [](Enemy& enemy) { return enemy.IsDead(); }),
-        enemies.end()
     );
 }
 
