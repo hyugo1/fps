@@ -36,6 +36,8 @@ class Game {
         int playerHP;
         int playerMaxHP;
         float playerInvulnTimer;
+        float playerBaseSpeed;
+        float playerSpeed;
         int playerMeleeDamage;
 
         // ====== Enemies ======
@@ -62,8 +64,15 @@ class Game {
         // ==== Items ====
         std::vector<HealthItem> healthItems;
         std::vector<WeaponItem> weaponItems;
+        std::vector<SpeedItem> speedItems;
         void UpdateHealthItems();
         void UpdateWeaponItems();
+        void UpdateSpeedItems(float deltaTime);
+
+        float speedItemDuration;
+        float speedItemTimer;
+        float speedItemAmount;
+        bool speedItemActive;
 
         
         // ====== Map ======

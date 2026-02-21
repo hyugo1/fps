@@ -15,6 +15,7 @@
 #include "CombatSystem.h"
 #include "SpawnSystem.h"
 #include <fstream>
+#include <iostream>
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -28,6 +29,12 @@ Game::Game() {
     playerHP = 30;
     playerMaxHP = 30;
     playerInvulnTimer = 0.0f;
+    playerBaseSpeed = BASE_PLAYER_SPEED;
+    playerSpeed = playerBaseSpeed;
+    speedItemAmount = 50.0f;
+    speedItemDuration = 5.0f;
+    speedItemTimer = 0.0f;
+    speedItemActive = false;
     shootCooldown = 0.0f;
     screenHeight = 600;
     screenWidth = 800;
@@ -386,6 +393,7 @@ void Game::UpdateCollision(float deltaTime, float dx, float dy) {
         player,
         enemies,
         playerInvulnTimer,
+        playerSpeed,
         playerHP,
         [this](const Entity& ent, float x, float y) {
             return DetectCollision(ent, x, y);
@@ -406,7 +414,8 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
            return;
         }
         UpdateCollision(deltaTime, dx, dy);
-        UpdateHealthItems(); 
+        UpdateHealthItems();
+        UpdateSpeedItems(deltaTime);
         UpdateWeaponItems();
         UpdateEnemy(deltaTime);
         UpdateCamera(deltaTime, dx, dy);
@@ -464,6 +473,37 @@ void Game::UpdateHealthItems() {
         std::remove_if(healthItems.begin(), healthItems.end(),
             [](const HealthItem &h){ return h.collected; }),
         healthItems.end()
+    );
+}
+
+void Game::UpdateSpeedItems(float deltaTime) {
+    if (speedItemActive) {
+        speedItemTimer -= deltaTime;
+        if (speedItemTimer <= 0.0f) {
+            speedItemTimer = 0.0f;
+            playerSpeed = playerBaseSpeed;
+            speedItemActive = false;
+        }
+    }
+
+    for (auto &s : speedItems) {
+        if (!s.collected) {
+            Entity itemEntity{s.x, s.y, s.width, s.height};
+            if (CombatSystem::AABB(player, itemEntity)) {
+                if (!speedItemActive) {
+                    playerSpeed = playerBaseSpeed + speedItemAmount;
+                    speedItemTimer = speedItemDuration;
+                    speedItemActive = true;
+                    s.collected = true;
+                }
+            }
+        }
+    }
+
+    speedItems.erase(
+        std::remove_if(speedItems.begin(), speedItems.end(),
+            [](const SpeedItem &s){ return s.collected; }),
+        speedItems.end()
     );
 }
 
@@ -559,6 +599,7 @@ void Game::UpdateLevelComplete() {
         currentLevel++;
         enemies.clear();
         bullets.clear();
+        speedItems.clear();
         weaponItems.clear();
         SpawnSystem::SpawnEnemies(
             5 + currentLevel,
@@ -575,6 +616,17 @@ void Game::UpdateLevelComplete() {
         SpawnSystem::SpawnHealthItems(
             2,
             healthItems,
+            player,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnSpeedItems(
+            1,
+            speedItems,
             player,
             mapWidth,
             mapHeight,
@@ -628,10 +680,15 @@ void Game::UpdateGameOver() {
         enemies.clear();
         bullets.clear();
         healthItems.clear();
+        speedItems.clear();
         weaponItems.clear();
         playerWeapons.clear();
         playerWeapons.push_back(Weapon(Weapon::PISTOL));
         currentWeaponIndex = 0;
+        playerSpeed = playerBaseSpeed;
+        speedItemActive = false;
+        speedItemTimer = 0.0f;
+
         SpawnSystem::SpawnEnemies(
             5,
             enemies,
@@ -647,6 +704,17 @@ void Game::UpdateGameOver() {
         SpawnSystem::SpawnHealthItems(
             2,
             healthItems,
+            player,
+            mapWidth,
+            mapHeight,
+            tileSize,
+            [this](const Entity& ent, float x, float y) {
+                return DetectCollision(ent, x, y);
+            }
+        );
+        SpawnSystem::SpawnSpeedItems(
+            1,
+            speedItems,
             player,
             mapWidth,
             mapHeight,
@@ -829,6 +897,21 @@ void Game::RenderGameScene() {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
+
+    // draw speed items
+    for (auto &s : speedItems) {
+        if (!s.collected) {
+            SDL_Rect rect = {
+                (int)(s.x - cameraX),
+                (int)(s.y - cameraY),
+                (int)s.width,
+                (int)s.height
+            };
+            SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+
 
     // draw weapon items
     for (auto &w : weaponItems) {

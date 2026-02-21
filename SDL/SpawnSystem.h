@@ -30,6 +30,16 @@ namespace SpawnSystem {
         const std::function<bool(const Entity&, float, float)>& collisionFunc
     );
 
+    void SpawnSpeedItems(
+        int count,
+        std::vector<SpeedItem>& speedItems,
+        const Entity& player,
+        int mapWidth,
+        int mapHeight,
+        int tileSize,
+        const std::function<bool(const Entity&, float, float)>& collisionFunc
+    );
+
     void SpawnWeaponItems(
         int count,
         std::vector<WeaponItem>& weaponItems,
