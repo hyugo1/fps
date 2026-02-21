@@ -83,6 +83,48 @@ void SpawnHealthItems(
     }
 }
 
+void SpawnSpeedItems(
+    int count,
+    std::vector<SpeedItem>& speedItems,
+    const Entity& player,
+    int mapWidth,
+    int mapHeight,
+    int tileSize,
+    const std::function<bool(const Entity&, float, float)>& collisionFunc
+) {
+    const float MIN_DISTANCE = 100.0f; // Don't spawn too close to player
+    for(int i = 0; i < count; i++) {
+        float spawnX, spawnY;
+        bool collidesWithWall;
+        float distance;
+
+    do {
+        spawnX = rand() % (mapWidth * tileSize);
+        spawnY = rand() % (mapHeight * tileSize);
+
+        Entity temp;
+        temp.x = spawnX;
+        temp.y = spawnY;
+        temp.width = PLAYER_SIZE;
+        temp.height = PLAYER_SIZE;
+
+        collidesWithWall = collisionFunc(temp, spawnX, spawnY);
+
+        float dx = spawnX - player.x;
+        float dy = spawnY - player.y;
+        distance = std::sqrt(dx*dx + dy*dy);
+
+    } while(collidesWithWall || distance < MIN_DISTANCE);
+
+    SpeedItem item;
+    item.x = spawnX;
+    item.y = spawnY;
+    item.width = PLAYER_SIZE / 2;
+    item.height = PLAYER_SIZE / 2;
+    speedItems.push_back(item);
+    }
+}
+
 void SpawnWeaponItems(
     int count,
     std::vector<WeaponItem>& weaponItems,

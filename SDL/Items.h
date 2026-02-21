@@ -7,4 +7,10 @@ struct HealthItem {
     bool collected = false;
 };
 
+struct SpeedItem {
+    float x, y;
+    float width, height;
+    bool collected = false;
+};
+
 #endif
