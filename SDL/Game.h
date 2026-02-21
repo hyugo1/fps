@@ -36,6 +36,7 @@ class Game {
         int playerHP;
         int playerMaxHP;
         float playerInvulnTimer;
+        float playerBaseSpeed;
         float playerSpeed;
         int playerMeleeDamage;
 

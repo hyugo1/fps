@@ -29,7 +29,8 @@ Game::Game() {
     playerHP = 30;
     playerMaxHP = 30;
     playerInvulnTimer = 0.0f;
-    playerSpeed = 200.0f;
+    playerBaseSpeed = BASE_PLAYER_SPEED;
+    playerSpeed = playerBaseSpeed;
     speedItemAmount = 50.0f;
     speedItemDuration = 5.0f;
     speedItemTimer = 0.0f;
@@ -480,26 +481,28 @@ void Game::UpdateSpeedItems(float deltaTime) {
         speedItemTimer -= deltaTime;
         if (speedItemTimer <= 0.0f) {
             speedItemTimer = 0.0f;
-            playerSpeed -= speedItemAmount; // decrease speed back to normal
+            playerSpeed = playerBaseSpeed;
             speedItemActive = false;
         }
     }
 
-    for (auto &h : speedItems) {
-        if (!h.collected) {
-            Entity itemEntity{h.x, h.y, h.width, h.height};
+    for (auto &s : speedItems) {
+        if (!s.collected) {
+            Entity itemEntity{s.x, s.y, s.width, s.height};
             if (CombatSystem::AABB(player, itemEntity)) {
-                playerSpeed += speedItemAmount;
-                speedItemTimer = speedItemDuration;
-                speedItemActive = true;
-                h.collected = true;
+                if (!speedItemActive) {
+                    playerSpeed = playerBaseSpeed + speedItemAmount;
+                    speedItemTimer = speedItemDuration;
+                    speedItemActive = true;
+                    s.collected = true;
+                }
             }
         }
     }
 
     speedItems.erase(
         std::remove_if(speedItems.begin(), speedItems.end(),
-            [](const SpeedItem &h){ return h.collected; }),
+            [](const SpeedItem &s){ return s.collected; }),
         speedItems.end()
     );
 }
@@ -596,6 +599,7 @@ void Game::UpdateLevelComplete() {
         currentLevel++;
         enemies.clear();
         bullets.clear();
+        speedItems.clear();
         weaponItems.clear();
         SpawnSystem::SpawnEnemies(
             5 + currentLevel,
@@ -681,10 +685,10 @@ void Game::UpdateGameOver() {
         playerWeapons.clear();
         playerWeapons.push_back(Weapon(Weapon::PISTOL));
         currentWeaponIndex = 0;
-        playerSpeed = 200.0f;
+        playerSpeed = playerBaseSpeed;
         speedItemActive = false;
         speedItemTimer = 0.0f;
-        
+
         SpawnSystem::SpawnEnemies(
             5,
             enemies,

@@ -51,11 +51,10 @@ void UpdatePlayerCollision(
     Entity& player,
     std::vector<Enemy>& enemies,
     float& playerInvulnTimer,
-    float& playerSpeed,
+    float playerSpeed,
     int& playerHP,
     const std::function<bool(const Entity&, float, float)>& collisionFunc
 ) {
-    // float playerSpeed = 200.0f;
     float nextX = player.x + dx * playerSpeed * deltaTime;
     float nextY = player.y + dy * playerSpeed * deltaTime;
 

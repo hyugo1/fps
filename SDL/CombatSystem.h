@@ -28,7 +28,7 @@ void UpdatePlayerCollision(
     Entity& player,
     std::vector<Enemy>& enemies,
     float& playerInvulnTimer,
-    float& playerSpeed,
+    float playerSpeed,
     int& playerHP,
     const std::function<bool(const Entity&, float, float)>& collisionFunc
 );
