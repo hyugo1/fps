@@ -7,7 +7,6 @@
 
 int main(int argc, char* argv[]) {
     Game game;
-    Uint32 lastTime = SDL_GetTicks();
     if (game.Init()) {
         while (game.IsRunning()) {
             game.HandleEvents();

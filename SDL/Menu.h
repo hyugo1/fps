@@ -101,18 +101,18 @@ public:
         int mouseY = 0;
         Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
         bool leftDown = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
-        SDL_Rect startRect;
-        SDL_Rect optionsRect;
-        SDL_Rect exitRect;
-        BuildOptionMenuButtonRects(screenWidth, screenHeight, startRect, optionsRect, exitRect);
+        SDL_Rect easyRect;
+        SDL_Rect mediumRect;
+        SDL_Rect hardRect;
+        BuildOptionMenuButtonRects(screenWidth, screenHeight, easyRect, mediumRect, hardRect);
         OptionMenuAction action = DEFAULT;
         bool justPressed = leftDown && !mouseDownLastFrame;
         if (justPressed) {
-            if (PointsAreOnSquare(mouseX, mouseY, startRect)) {
+            if (PointsAreOnSquare(mouseX, mouseY, easyRect)) {
                 action = EASY;
-            } else if (PointsAreOnSquare(mouseX, mouseY, optionsRect)) {
+            } else if (PointsAreOnSquare(mouseX, mouseY, mediumRect)) {
                 action = MEDIUM;
-            } else if (PointsAreOnSquare(mouseX, mouseY, exitRect)) {
+            } else if (PointsAreOnSquare(mouseX, mouseY, hardRect)) {
                 action = HARD;
             }
         }

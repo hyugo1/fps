@@ -23,9 +23,8 @@ class Game {
         void Render();
         void Clean();
         
-        float getDeltaTime();
         
-        private:
+    private:
         // ====== Game State ======
         enum GameState { MENU, OPTIONS, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
         enum Difficulty { DEFAULT, EASY, MEDIUM, HARD };
@@ -37,6 +36,7 @@ class Game {
         int getLevel();
         Uint32 getLastTime();
         GameState getCurrentState();
+        float getDeltaTime();
 
         // ====== Player ======
         Entity player;
