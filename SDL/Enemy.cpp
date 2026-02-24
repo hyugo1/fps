@@ -8,7 +8,7 @@
 #include "Config.h"
 
 // ---------------- Constructor ----------------
-Enemy::Enemy(float startX, float startY, EnemyType type, int level) {
+Enemy::Enemy(float startX, float startY, EnemyType type, int level, float difficultyMultiplier) {
     body.x = startX;
     body.y = startY;
     body.width = PLAYER_SIZE;
@@ -19,8 +19,8 @@ Enemy::Enemy(float startX, float startY, EnemyType type, int level) {
     character = type;
     float baseSpeed = 100.0f;
     int baseHealth = 100;
-    speed = baseSpeed + (level - 1) * 2.0f;
-    maxHealth = baseHealth + (level - 1) * 2;
+    speed = (baseSpeed + (level - 1) * 2.0f) * difficultyMultiplier;
+    maxHealth = baseHealth + (level - 1) * 2 * difficultyMultiplier;
     health = maxHealth;
     isDying = false;
     deathDuration = 0.25f;

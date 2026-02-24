@@ -19,17 +19,24 @@ class Game {
         bool Init();
         bool IsRunning();
         void HandleEvents();
-        void Update(float deltaTime);
+        void Update();
         void Render();
         void Clean();
-
-    private:
+        
+        float getDeltaTime();
+        
+        private:
         // ====== Game State ======
-        enum GameState { MENU, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
+        enum GameState { MENU, OPTIONS, PLAYING, PAUSED, LEVEL_COMPLETE, GAME_OVER };
+        enum Difficulty { DEFAULT, EASY, MEDIUM, HARD };
+        Difficulty currentDifficulty = MEDIUM;
+        float GetDifficultyMultiplier() const;
         GameState currentState;
         GameState previousState;
         int currentLevel;
         int getLevel();
+        Uint32 getLastTime();
+        GameState getCurrentState();
 
         // ====== Player ======
         Entity player;
@@ -53,8 +60,6 @@ class Game {
         void DetectMouseClick();
         
         // ==== Weapons ====
-        // enum WeaponType { PISTOL, RIFLE, SHOTGUN, MACHINEGUN };
-        // WeaponType currentWeapon = PISTOL;
         std::vector<Weapon> playerWeapons;
         int currentWeaponIndex = 0;
         bool inventoryOpen = false;
@@ -119,11 +124,14 @@ class Game {
 
         // ====== Menu / Rendering ======
         void UpdateMenu();
+        void UpdateOptionsMenu();
+        void UpdatePlayingGameState(float deltaTime);
         void UpdateLevelComplete();
         void UpdateGameOver();
         void HandlePauseInput();
         void RenderPauseOverlay();
         void RenderMenu();
+        void RenderOptionsMenu();
         void RenderPauseMenu();
         void RenderGameScene();
         void RenderGame();
