@@ -199,13 +199,13 @@ void Game::DrawTile(int x, int y) {
     int tile = map[y * mapWidth + x];
     if (tile == 1) {
         // border wall
+        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         if (wallTexture) {
-            SDL_RenderCopy(renderer, wallTexture, nullptr, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+            SDL_RenderCopy(renderer, wallTexture, nullptr, &rect);
         } else {
-            SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //wall fallback
-            SDL_RenderFillRect(renderer, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+            SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255);
+            SDL_RenderFillRect(renderer, &rect);
         }
-
     }
     if (tile == 0) {
         // floor
@@ -229,11 +229,12 @@ void Game::DrawTile(int x, int y) {
     }
     if (tile == 2) {
         // render random objects
+        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         if (wallTexture) {
-            SDL_RenderCopy(renderer, wallTexture, nullptr, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+            SDL_RenderCopy(renderer, wallTexture, nullptr, &rect);
         } else {
             SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //wall fallback
-            SDL_RenderFillRect(renderer, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+            SDL_RenderFillRect(renderer, &rect);
         }
     }
 }
@@ -1510,6 +1511,8 @@ void Game::Clean() {
     SDL_DestroyTexture(wallTexture);
     SDL_DestroyTexture(floorTexture);
     SDL_DestroyTexture(healthTexture);
+    SDL_DestroyTexture(speedTexture);
+    SDL_DestroyTexture(weaponItemsTexture);
     delete menu;
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

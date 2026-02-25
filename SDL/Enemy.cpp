@@ -240,7 +240,7 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
     Uint8 b = baseB * healthPercent;
 
     if (currentEnemyTexture) {
-        SDL_SetTextureColorMod(currentEnemyTexture, 255, 255, 255);
+        SDL_SetTextureColorMod(currentEnemyTexture, r, g, b);
         SDL_SetTextureAlphaMod(currentEnemyTexture, 255);
         SDL_SetTextureBlendMode(currentEnemyTexture, SDL_BLENDMODE_BLEND);
         SDL_RenderCopy(renderer, currentEnemyTexture, nullptr, &enemyRect);
