@@ -86,7 +86,8 @@ Game::Game() {
         tileSize,
         [this](const Entity& ent, float x, float y) {
             return DetectCollision(ent, x, y);
-        }
+        },
+        GetDifficultyMultiplier()
     );
 
     //weapons
@@ -96,6 +97,27 @@ Game::Game() {
 
 int Game::getLevel() {
     return currentLevel;
+}
+
+Uint32 Game::getLastTime() {
+    return lastTime;
+}
+float Game::getDeltaTime() {
+    Uint32 currentTime = SDL_GetTicks();
+    float deltaTime = (currentTime - lastTime) / 1000.0f;
+    lastTime = currentTime;
+    return deltaTime;
+}
+
+float Game::GetDifficultyMultiplier() const {
+    if (currentDifficulty == EASY) return 0.8f;
+    if (currentDifficulty == MEDIUM) return 1.0f;
+    if (currentDifficulty == HARD) return 1.2f;
+    return 1.0f;
+}
+
+Game::GameState Game::getCurrentState() {
+    return currentState;
 }
 
 void Game::DrawMap() {
@@ -205,39 +227,82 @@ void Game::HandleEvents() {
     }
 }
 
-void Game::Update(float deltaTime) {
-    if(currentState == MENU) {
-        UpdateMenu();
-    }
-    else if(currentState == PLAYING) {
-        float dx = 0.0f;
-        float dy = 0.0f;
-        HandlePlayerInput(deltaTime, dx, dy);
-        HandlePauseInput();
-        if (currentState != PLAYING) {
-            return;
-        }
-        HandleReloadInput();
-        UpdateGame(deltaTime, dx, dy);
-    }
-    else if (currentState == PAUSED) {
-        HandlePauseInput();
-    }
-    else if(currentState == LEVEL_COMPLETE) {
-        UpdateLevelComplete();
-    }
-    else if(currentState == GAME_OVER) {
-        UpdateGameOver();
+void Game::Update() {
+    float deltaTime = getDeltaTime();
+    switch(currentState) {
+        case (Game::MENU):
+            UpdateMenu();
+            break;
+        case (Game::OPTIONS):
+            UpdateOptionsMenu();
+            break;
+        case (Game::PLAYING):
+            UpdatePlayingGameState(deltaTime);
+            break;
+        case (Game::PAUSED):
+            HandlePauseInput();
+            break;
+        case (Game::LEVEL_COMPLETE):
+            UpdateLevelComplete();
+            break;
+        case (Game::GAME_OVER):
+            UpdateGameOver();
+            break;
     }
 }
 
 void Game::UpdateMenu() {
-    // Handle menu logic (e.g., start game on key press)
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
-    if (keystate[SDL_SCANCODE_RETURN]) {
+    if (keystate[SDL_SCANCODE_ESCAPE]) {
+        running = false;
+    }
+
+    Menu::MainMenuAction action = menu->UpdateMainMenu(screenWidth, screenHeight);
+    if (action == Menu::START) {
         currentState = PLAYING;
+    } else if (action == Menu::OPTIONS) {
+        currentState = OPTIONS;
+    } else if (action == Menu::EXIT) {
+        running = false;
     }
 }
+
+void Game::UpdateOptionsMenu() {
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    if (keystate[SDL_SCANCODE_ESCAPE]) {
+        currentState = MENU;
+        return;
+    }
+
+    Menu::OptionMenuAction action = menu->UpdateOptionsMenu(screenWidth, screenHeight);
+    switch (action) {
+        case Menu::DEFAULT:
+            return;
+        case Menu::EASY:
+            currentDifficulty = EASY;
+            break;
+        case Menu::MEDIUM:
+            currentDifficulty = MEDIUM;
+            break;
+        case Menu::HARD:
+            currentDifficulty = HARD;
+            break;
+    }
+    currentState = MENU;
+}
+
+void Game::UpdatePlayingGameState(float deltaTime) {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    HandlePlayerInput(deltaTime, dx, dy);
+    HandlePauseInput();
+    if (currentState != PLAYING) {
+        return;
+    }
+    HandleReloadInput();
+    UpdateGame(deltaTime, dx, dy);
+}
+
 
 void Game::HandlePauseInput() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
@@ -611,7 +676,8 @@ void Game::UpdateLevelComplete() {
             tileSize,
             [this](const Entity& ent, float x, float y) {
                 return DetectCollision(ent, x, y);
-            }
+            },
+            GetDifficultyMultiplier()
         );
         SpawnSystem::SpawnHealthItems(
             2,
@@ -699,7 +765,8 @@ void Game::UpdateGameOver() {
             tileSize,
             [this](const Entity& ent, float x, float y) {
                 return DetectCollision(ent, x, y);
-            }
+            },
+            GetDifficultyMultiplier()
         );
         SpawnSystem::SpawnHealthItems(
             2,
@@ -754,20 +821,25 @@ double Game::Clamp(double a, double minimum, double maximum) {
 }
 
 void Game::Render() {
-    if(currentState == MENU) {
-        RenderMenu();
-    }
-    else if(currentState == PLAYING) {
-        RenderGame();
-    }
-    else if(currentState == PAUSED) {
-        RenderPauseMenu();
-    }
-    else if(currentState == LEVEL_COMPLETE) {
-        RenderLevelComplete();
-    }
-    else if(currentState == GAME_OVER) {
-        RenderGameOver();
+    switch (currentState) {
+        case MENU:
+            RenderMenu();
+            break;
+        case OPTIONS:
+            RenderOptionsMenu();
+            break;
+        case PLAYING:
+            RenderGame();
+            break;
+        case PAUSED:
+            RenderPauseMenu();
+            break;
+        case LEVEL_COMPLETE:
+            RenderLevelComplete();
+            break;
+        case GAME_OVER:
+            RenderGameOver();
+            break;
     }
 }   
 
@@ -777,12 +849,21 @@ void Game::RenderPauseMenu() {
     SDL_RenderPresent(renderer);
 }
 
+void Game::RenderOptionsMenu() {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    menu->RenderOptionsMenu(screenWidth, screenHeight);
+
+    SDL_RenderPresent(renderer);
+}
+
 void Game::RenderMenu() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    menu->Render("Press ENTER to Start", screenWidth, screenHeight);
+    menu->RenderMainMenu(screenWidth, screenHeight);
 
     SDL_RenderPresent(renderer);
 }

@@ -17,7 +17,8 @@ namespace SpawnSystem {
         int mapWidth,
         int mapHeight,
         int tileSize,
-        const std::function<bool(const Entity&, float, float)>& collisionFunc
+        const std::function<bool(const Entity&, float, float)>& collisionFunc,
+        float difficultyMultiplier
     );
 
     void SpawnHealthItems(

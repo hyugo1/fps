@@ -57,7 +57,8 @@ void SpawnEnemies(
     int mapWidth,
     int mapHeight,
     int tileSize,
-    const std::function<bool(const Entity&, float, float)>& collisionFunc
+    const std::function<bool(const Entity&, float, float)>& collisionFunc,
+    float difficultyMultiplier
 ) {
     const float MIN_DISTANCE = 200.0f;
     for(int i = 0; i < count; i++) {
@@ -81,7 +82,7 @@ void SpawnEnemies(
         } while(collidesWithWall || distance < MIN_DISTANCE); // ensure enemies don't spawn too close to the player or inside walls
         Enemy::EnemyType type =
             static_cast<Enemy::EnemyType>(rand() % 3);
-        enemies.push_back(Enemy(spawnX, spawnY, type, currentLevel));
+        enemies.push_back(Enemy(spawnX, spawnY, type, currentLevel, difficultyMultiplier));
     }
 }
 
