@@ -10,12 +10,50 @@
 #include "Config.h"
 #include "Menu.h"  
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include "Weapon.h"
 #include "CombatSystem.h"
 #include "SpawnSystem.h"
 #include <fstream>
 #include <iostream>
+#include <vector>
+#include <string>
+
+#define SPRITE_SIZE 32
+
+namespace {
+SDL_Texture* LoadTextureWithFallback(SDL_Renderer* renderer, const std::string& relativePath) {
+    std::vector<std::string> candidatePaths = {
+        relativePath,
+        "SDL/" + relativePath,
+        "../" + relativePath,
+        "../../SDL/" + relativePath
+    };
+
+    char* basePathRaw = SDL_GetBasePath();
+    if (basePathRaw) {
+        std::string basePath(basePathRaw);
+        candidatePaths.push_back(basePath + relativePath);
+        candidatePaths.push_back(basePath + "../" + relativePath);
+        candidatePaths.push_back(basePath + "../SDL/" + relativePath);
+        SDL_free(basePathRaw);
+    }
+
+    for (const std::string& path : candidatePaths) {
+        SDL_Texture* texture = IMG_LoadTexture(renderer, path.c_str());
+        if (texture) {
+            return texture;
+        }
+    }
+
+    std::cout << "Failed texture paths for " << relativePath << ":" << std::endl;
+    for (const std::string& path : candidatePaths) {
+        std::cout << "  - " << path << std::endl;
+    }
+    return nullptr;
+}
+}
 
 // ---------------- Constructor ----------------
 Game::Game() {
@@ -23,6 +61,26 @@ Game::Game() {
     lastTime = 0;
     window = nullptr;
     renderer = nullptr;
+    playerTexture = nullptr;
+    playerWalkTexture1 = nullptr;
+    playerWalkTexture2 = nullptr;
+    playerPistolTexture = nullptr;
+    playerShotgunTexture = nullptr;
+    playerSmgTexture = nullptr;
+    playerPistolWalkTexture1 = nullptr;
+    playerPistolWalkTexture2 = nullptr;
+    playerShotgunWalkTexture1 = nullptr;
+    playerShotgunWalkTexture2 = nullptr;
+    playerSmgWalkTexture1 = nullptr;
+    playerSmgWalkTexture2 = nullptr;
+    inventoryPistolTexture = nullptr;
+    inventoryShotgunTexture = nullptr;
+    inventorySmgTexture = nullptr;
+    wallTexture = nullptr;
+    floorTexture = nullptr;
+    healthTexture = nullptr;
+    speedTexture = nullptr;
+    weaponItemsTexture = nullptr;
     currentState = MENU;
     previousState = currentState;
     currentLevel = 1;
@@ -45,6 +103,11 @@ Game::Game() {
     shootAnimDuration = 0.08f;
     lastShotDirX = 1.0f;
     lastShotDirY = 0.0f;
+    playerIsMoving = false;
+    playerFacingLeft = false;
+    playerWalkAnimTimer = 0.0f;
+    playerWalkFrameDuration = 0.14f;
+    playerWalkFrameIndex = 0;
     playerDying = false;
     playerDeathTimer = 0.0f;
     playerDeathDuration = 0.6f;
@@ -135,30 +198,61 @@ void Game::DrawTile(int x, int y) {
         return;
     int tile = map[y * mapWidth + x];
     if (tile == 1) {
-        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 30, 30, 35, 255); //wall
-        SDL_RenderFillRect(renderer, &rect);
+        // border wall
+        if (wallTexture) {
+            SDL_RenderCopy(renderer, wallTexture, nullptr, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+        } else {
+            SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //wall fallback
+            SDL_RenderFillRect(renderer, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+        }
+
     }
     if (tile == 0) {
+        // floor
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 60, 55, 50, 255); // floor
-        SDL_RenderFillRect(renderer, &rect);
+        if (floorTexture) {
+            int texW = 0;
+            int texH = 0;
+            SDL_QueryTexture(floorTexture, nullptr, nullptr, &texW, &texH);
+            SDL_Rect srcRect = {0, 0, texW, texH};
+            if (texW > 2 && texH > 2) {
+                srcRect.x = 1;
+                srcRect.y = 1;
+                srcRect.w = texW - 2;
+                srcRect.h = texH - 2;
+            }
+            SDL_RenderCopy(renderer, floorTexture, &srcRect, &rect);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 60, 55, 50, 255); // floor fallback
+            SDL_RenderFillRect(renderer, &rect);
+        }
     }
     if (tile == 2) {
-        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
-        SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //random obstacles
-        SDL_RenderFillRect(renderer, &rect);
+        // render random objects
+        if (wallTexture) {
+            SDL_RenderCopy(renderer, wallTexture, nullptr, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+        } else {
+            SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //wall fallback
+            SDL_RenderFillRect(renderer, new SDL_Rect{x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize});
+        }
     }
 }
 
 // return true if collision, false if no collision
 bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
-    int x = nextX;
-    int y = nextY;
+    const float collisionInset = 6.0f;
+    float x = nextX + collisionInset;
+    float y = nextY + collisionInset;
+    float width = entity.width - collisionInset * 2.0f;
+    float height = entity.height - collisionInset * 2.0f;
+
+    if (width < 1.0f) width = 1.0f;
+    if (height < 1.0f) height = 1.0f;
+
     int leftTile   = (int)(x / tileSize);
-    int rightTile  = (int)((x + entity.width - 1) / tileSize);
+    int rightTile  = (int)((x + width - 1) / tileSize);
     int topTile    = (int)(y / tileSize);
-    int bottomTile = (int)((y + entity.height - 1) / tileSize);
+    int bottomTile = (int)((y + height - 1) / tileSize);
 
     // Check each corner
     for (int tileY = topTile; tileY <= bottomTile; tileY++) {
@@ -175,6 +269,8 @@ bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
 }
 
 bool Game::Init() {
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
         return false;
@@ -198,6 +294,44 @@ bool Game::Init() {
         SDL_Quit();
         return false;
     }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        printf("IMG_Init Error: %s\n", IMG_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return false;
+    }
+
+    playerTexture = LoadTextureWithFallback(renderer, "sprites/sprite.png");
+    if (!playerTexture) {
+        printf("IMG_LoadTexture Error: %s\n", IMG_GetError());
+        IMG_Quit();
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return false;
+    }
+
+    playerWalkTexture1 = LoadTextureWithFallback(renderer, "sprites/walking-1.png");
+    playerWalkTexture2 = LoadTextureWithFallback(renderer, "sprites/walking-3.png");
+    playerPistolTexture = LoadTextureWithFallback(renderer, "sprites/sprite_with_pistol.png");
+    playerShotgunTexture = LoadTextureWithFallback(renderer, "sprites/sprite_with_shotgun.png");
+    playerSmgTexture = LoadTextureWithFallback(renderer, "sprites/sprite_with_smg.png");
+    playerPistolWalkTexture1 = LoadTextureWithFallback(renderer, "sprites/pistol-walking-1.png");
+    playerPistolWalkTexture2 = LoadTextureWithFallback(renderer, "sprites/pistol-walking-3.png");
+    playerShotgunWalkTexture1 = LoadTextureWithFallback(renderer, "sprites/shotgun-walking-1.png");
+    playerShotgunWalkTexture2 = LoadTextureWithFallback(renderer, "sprites/shotgun-walking-3.png");
+    playerSmgWalkTexture1 = LoadTextureWithFallback(renderer, "sprites/smg-walking-1.png");
+    playerSmgWalkTexture2 = LoadTextureWithFallback(renderer, "sprites/smg-walking-3.png");
+    inventoryPistolTexture = LoadTextureWithFallback(renderer, "sprites/pistol.png");
+    inventoryShotgunTexture = LoadTextureWithFallback(renderer, "sprites/shotgun.png");
+    inventorySmgTexture = LoadTextureWithFallback(renderer, "sprites/smg.png");
+    wallTexture = LoadTextureWithFallback(renderer, "sprites/brickwall4.png");
+    floorTexture = LoadTextureWithFallback(renderer, "sprites/floor5.png");
+    healthTexture = LoadTextureWithFallback(renderer, "sprites/heart.png");
+    speedTexture = LoadTextureWithFallback(renderer, "sprites/speedbooster.png");
+    weaponItemsTexture = LoadTextureWithFallback(renderer, "sprites/chest.png");
 
     previousState = currentState;
     running = true;
@@ -339,6 +473,14 @@ void Game::HandlePlayerMovementInput(float deltaTime, float& dx, float& dy) {
         dx -= 1;
     if (keystate[SDL_SCANCODE_D])
         dx += 1;
+
+    if (keystate[SDL_SCANCODE_A]) {
+        playerFacingLeft = true;
+    } else if (keystate[SDL_SCANCODE_D]) {
+        playerFacingLeft = false;
+    }
+
+    playerIsMoving = (dx != 0.0f || dy != 0.0f);
 }
 
 void Game::HandleInventoryInput() {
@@ -408,6 +550,17 @@ void Game::UpdatePlayer(float deltaTime) {
         if (shootAnimTimer < 0.0f) {
             shootAnimTimer = 0.0f;
         }
+    }
+
+    if (playerIsMoving) {
+        playerWalkAnimTimer += deltaTime;
+        if (playerWalkAnimTimer >= playerWalkFrameDuration) {
+            playerWalkAnimTimer -= playerWalkFrameDuration;
+            playerWalkFrameIndex = 1 - playerWalkFrameIndex;
+        }
+    } else {
+        playerWalkAnimTimer = 0.0f;
+        playerWalkFrameIndex = 0;
     }
 }
 
@@ -893,12 +1046,15 @@ void Game::RenderGameScene() {
 
     //draw map
     DrawMap();
+
     //draw player
     SDL_Rect playerRect = { 
         (int)(player.x - cameraX), 
         (int)(player.y - cameraY), 
         (int)player.width, (int)player.height
     };
+
+
     // Apply shooting recoil animation by offsetting player position opposite to shot direction
     if (shootAnimTimer > 0.0f) {
         float t = shootAnimTimer / shootAnimDuration;
@@ -906,25 +1062,66 @@ void Game::RenderGameScene() {
         playerRect.x -= (int)(lastShotDirX * recoil);
         playerRect.y -= (int)(lastShotDirY * recoil);
     }
+    SDL_Texture* currentPlayerTexture = playerTexture;
+    SDL_Texture* currentWalkTexture1 = playerWalkTexture1;
+    SDL_Texture* currentWalkTexture2 = playerWalkTexture2;
+    if (!playerWeapons.empty()) {
+        Weapon::WeaponType equippedType = playerWeapons[currentWeaponIndex].GetType();
+        if (equippedType == Weapon::PISTOL && playerPistolTexture) {
+            currentPlayerTexture = playerPistolTexture;
+            if (playerPistolWalkTexture1 && playerPistolWalkTexture2) {
+                currentWalkTexture1 = playerPistolWalkTexture1;
+                currentWalkTexture2 = playerPistolWalkTexture2;
+            }
+        } else if (equippedType == Weapon::SHOTGUN && playerShotgunTexture) {
+            currentPlayerTexture = playerShotgunTexture;
+            if (playerShotgunWalkTexture1 && playerShotgunWalkTexture2) {
+                currentWalkTexture1 = playerShotgunWalkTexture1;
+                currentWalkTexture2 = playerShotgunWalkTexture2;
+            }
+        } else if ((equippedType == Weapon::RIFLE || equippedType == Weapon::MACHINEGUN) && playerSmgTexture) {
+            currentPlayerTexture = playerSmgTexture;
+            if (playerSmgWalkTexture1 && playerSmgWalkTexture2) {
+                currentWalkTexture1 = playerSmgWalkTexture1;
+                currentWalkTexture2 = playerSmgWalkTexture2;
+            }
+        }
+    }
+
+    if (playerIsMoving && currentWalkTexture1 && currentWalkTexture2) {
+        currentPlayerTexture = (playerWalkFrameIndex == 0) ? currentWalkTexture1 : currentWalkTexture2;
+    }
+
     // Flash red when invulnerable or playerIsDying
     if (playerDying) {
         float progress = 1.0f - (playerDeathTimer / playerDeathDuration);
         if (progress < 0.2f) {
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            SDL_SetTextureColorMod(currentPlayerTexture, 255, 80, 80);
+            SDL_SetTextureAlphaMod(currentPlayerTexture, 255);
         } else {
             float alphaScale = 1.0f - progress;
             if (alphaScale < 0.0f) alphaScale = 0.0f;
             Uint8 alpha = (Uint8)(255.0f * alphaScale);
-            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
+            SDL_SetTextureColorMod(currentPlayerTexture, 255, 255, 255);
+            SDL_SetTextureAlphaMod(currentPlayerTexture, alpha);
         }
     } else if (playerInvulnTimer > 0.0f) {
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red flash
+        SDL_SetTextureColorMod(currentPlayerTexture, 255, 80, 80);
+        SDL_SetTextureAlphaMod(currentPlayerTexture, 255);
+    } else {
+        SDL_SetTextureColorMod(currentPlayerTexture, 255, 255, 255);
+        SDL_SetTextureAlphaMod(currentPlayerTexture, 255);
+    }
+
+    if (currentPlayerTexture) {
+        SDL_SetTextureBlendMode(currentPlayerTexture, SDL_BLENDMODE_BLEND);
+        SDL_RendererFlip flip = playerFacingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_RenderCopyEx(renderer, currentPlayerTexture, nullptr, &playerRect, 0.0, nullptr, flip);
     } else {
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(renderer, &playerRect);
     }
-        
-    SDL_RenderFillRect(renderer, &playerRect);
+
     // reset blend mode after drawing player to avoid affecting other elements
     if (playerDying) {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -974,8 +1171,12 @@ void Game::RenderGameScene() {
                 (int)h.width,
                 (int)h.height
             };
-            SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
-            SDL_RenderFillRect(renderer, &rect);
+            if (healthTexture) {
+                SDL_RenderCopy(renderer, healthTexture, nullptr, &rect);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+                SDL_RenderFillRect(renderer, &rect);
+            }
         }
     }
 
@@ -988,8 +1189,12 @@ void Game::RenderGameScene() {
                 (int)s.width,
                 (int)s.height
             };
-            SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
-            SDL_RenderFillRect(renderer, &rect);
+            if (speedTexture) {
+                SDL_RenderCopy(renderer, speedTexture, nullptr, &rect);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+                SDL_RenderFillRect(renderer, &rect);
+            }
         }
     }
 
@@ -1003,8 +1208,12 @@ void Game::RenderGameScene() {
                 (int)w.width,
                 (int)w.height
             };
-            SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // blue for weapons
-            SDL_RenderFillRect(renderer, &rect);
+            if (weaponItemsTexture) {
+                SDL_RenderCopy(renderer, weaponItemsTexture, nullptr, &rect);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // blue for weapons
+                SDL_RenderFillRect(renderer, &rect);
+            }
         }
     }
 
@@ -1020,6 +1229,21 @@ void Game::RenderGameScene() {
             else
                 SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
             SDL_RenderFillRect(renderer, &rect);
+
+            SDL_Texture* weaponIconTexture = nullptr;
+            Weapon::WeaponType slotType = playerWeapons[i].GetType();
+            if (slotType == Weapon::PISTOL) {
+                weaponIconTexture = inventoryPistolTexture;
+            } else if (slotType == Weapon::SHOTGUN) {
+                weaponIconTexture = inventoryShotgunTexture;
+            } else if (slotType == Weapon::RIFLE || slotType == Weapon::MACHINEGUN) {
+                weaponIconTexture = inventorySmgTexture;
+            }
+
+            if (weaponIconTexture) {
+                SDL_Rect iconRect = { rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4 };
+                SDL_RenderCopy(renderer, weaponIconTexture, nullptr, &iconRect);
+            }
         }
     }
 }
@@ -1268,9 +1492,27 @@ void Game::RenderGameOver() {
 }
 
 void Game::Clean() {
-    // SDL_DestroyTexture(texture);
+    SDL_DestroyTexture(playerTexture);
+    SDL_DestroyTexture(playerWalkTexture1);
+    SDL_DestroyTexture(playerWalkTexture2);
+    SDL_DestroyTexture(playerPistolTexture);
+    SDL_DestroyTexture(playerShotgunTexture);
+    SDL_DestroyTexture(playerSmgTexture);
+    SDL_DestroyTexture(playerPistolWalkTexture1);
+    SDL_DestroyTexture(playerPistolWalkTexture2);
+    SDL_DestroyTexture(playerShotgunWalkTexture1);
+    SDL_DestroyTexture(playerShotgunWalkTexture2);
+    SDL_DestroyTexture(playerSmgWalkTexture1);
+    SDL_DestroyTexture(playerSmgWalkTexture2);
+    SDL_DestroyTexture(inventoryPistolTexture);
+    SDL_DestroyTexture(inventoryShotgunTexture);
+    SDL_DestroyTexture(inventorySmgTexture);
+    SDL_DestroyTexture(wallTexture);
+    SDL_DestroyTexture(floorTexture);
+    SDL_DestroyTexture(healthTexture);
     delete menu;
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    IMG_Quit();
     SDL_Quit();
 };

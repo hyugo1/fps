@@ -101,6 +101,11 @@ class Game {
         float shootAnimDuration;
         float lastShotDirX; // direction of last shot, used for recoil animation
         float lastShotDirY;
+        bool playerIsMoving;
+        bool playerFacingLeft;
+        float playerWalkAnimTimer;
+        float playerWalkFrameDuration;
+        int playerWalkFrameIndex;
         bool playerDying;
         float playerDeathTimer; // time left for player death animation, used to show death animation and prevent input during it
         float playerDeathDuration;
@@ -141,6 +146,26 @@ class Game {
         // ====== SDL ======
         SDL_Window* window;
         SDL_Renderer* renderer;
+        SDL_Texture* playerTexture;
+        SDL_Texture* playerWalkTexture1;
+        SDL_Texture* playerWalkTexture2;
+        SDL_Texture* playerPistolTexture;
+        SDL_Texture* playerShotgunTexture;
+        SDL_Texture* playerSmgTexture;
+        SDL_Texture* playerPistolWalkTexture1;
+        SDL_Texture* playerPistolWalkTexture2;
+        SDL_Texture* playerShotgunWalkTexture1;
+        SDL_Texture* playerShotgunWalkTexture2;
+        SDL_Texture* playerSmgWalkTexture1;
+        SDL_Texture* playerSmgWalkTexture2;
+        SDL_Texture* inventoryPistolTexture;
+        SDL_Texture* inventoryShotgunTexture;
+        SDL_Texture* inventorySmgTexture;
+        SDL_Texture* wallTexture;
+        SDL_Texture* floorTexture;
+        SDL_Texture* healthTexture;
+        SDL_Texture* speedTexture;
+        SDL_Texture* weaponItemsTexture;
         bool running;
         Uint32 lastTime;
         int screenWidth;
