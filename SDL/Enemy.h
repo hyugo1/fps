@@ -25,7 +25,7 @@ class Enemy {
         bool IsRemovable() const;
         int GetHP() const;
         int GetMaxHP() const;
-        int GetSpeed() const;
+        float GetSpeed() const;
     private:
         Entity body;
         float directionX;

@@ -106,7 +106,7 @@ int Enemy::GetHP() const {
 int Enemy::GetMaxHP() const { 
     return maxHealth; }
 
-int Enemy::GetSpeed() const {
+float Enemy::GetSpeed() const {
     return speed;
 }
 
