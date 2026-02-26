@@ -25,3 +25,50 @@ target_link_libraries(fps ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_L
 
 
 # @id:C_Cpp.default.includePath 
+
+enable_testing()
+
+add_executable(weapon_tests
+    tests/weapon_tests.cpp
+    Weapon.cpp
+)
+
+target_include_directories(weapon_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(weapon_tests PRIVATE ${SDL2_LIBRARIES})
+
+add_test(NAME weapon_tests COMMAND weapon_tests)
+
+add_executable(enemy_tests
+    tests/enemies_tests.cpp
+    Enemy.cpp
+    Weapon.cpp
+    CombatSystem.cpp
+)
+
+target_include_directories(enemy_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(enemy_tests PRIVATE ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+
+add_test(NAME enemy_tests COMMAND enemy_tests)
+
+
+add_executable(player_tests
+    tests/player_tests.cpp
+    Enemy.cpp
+    Weapon.cpp
+    CombatSystem.cpp
+)
+
+target_include_directories(player_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(player_tests PRIVATE ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+
+add_test(NAME player_tests COMMAND player_tests)
+
+
+add_executable(menu_tests
+    tests/menu_tests.cpp
+)
+
+target_include_directories(menu_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(menu_tests PRIVATE ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
+
+add_test(NAME menu_tests COMMAND menu_tests)
