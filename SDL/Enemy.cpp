@@ -106,6 +106,10 @@ int Enemy::GetHP() const {
 int Enemy::GetMaxHP() const { 
     return maxHealth; }
 
+float Enemy::GetSpeed() const {
+    return speed;
+}
+
 void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {    
     if (isDying) {
         deathTimer -= deltaTime;

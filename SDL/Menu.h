@@ -5,9 +5,12 @@
 #include <SDL2/SDL_ttf.h>
 #include <string>
 #include <cstdio>
+#include <functional>
 
 class Menu {
 public:
+    using MouseStateProvider = std::function<Uint32(int*, int*)>;
+
     enum MainMenuAction {
         NONE,
         START,
@@ -22,7 +25,8 @@ public:
         HARD
     };
 
-    Menu(SDL_Renderer* renderer) : renderer(renderer) {
+    Menu(SDL_Renderer* renderer, MouseStateProvider mouseStateProvider = SDL_GetMouseState)
+        : renderer(renderer), mouseStateProvider(mouseStateProvider) {
     if (TTF_Init() == -1) {
         printf("TTF_Init Error: %s\n", TTF_GetError());
     }
@@ -60,7 +64,7 @@ public:
     MainMenuAction UpdateMainMenu(int screenWidth, int screenHeight) { 
         int mouseX = 0;
         int mouseY = 0;
-        Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
+        Uint32 mouseState = mouseStateProvider(&mouseX, &mouseY);
         bool leftDown = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
         SDL_Rect startRect;
         SDL_Rect optionsRect;
@@ -85,7 +89,7 @@ public:
     void RenderMainMenu(int screenWidth, int screenHeight) {
         int mouseX = 0;
         int mouseY = 0;
-        SDL_GetMouseState(&mouseX, &mouseY);
+        mouseStateProvider(&mouseX, &mouseY);
         SDL_Rect startRect;
         SDL_Rect optionsRect;
         SDL_Rect exitRect;
@@ -99,7 +103,7 @@ public:
     OptionMenuAction UpdateOptionsMenu(int screenWidth, int screenHeight) { 
         int mouseX = 0;
         int mouseY = 0;
-        Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
+        Uint32 mouseState = mouseStateProvider(&mouseX, &mouseY);
         bool leftDown = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
         SDL_Rect easyRect;
         SDL_Rect mediumRect;
@@ -123,7 +127,7 @@ public:
     void RenderOptionsMenu(int screenWidth, int screenHeight) {
         int mouseX = 0;
         int mouseY = 0;
-        SDL_GetMouseState(&mouseX, &mouseY);
+        mouseStateProvider(&mouseX, &mouseY);
         SDL_Rect easyRect;
         SDL_Rect mediumRect;
         SDL_Rect hardRect;
@@ -197,4 +201,5 @@ private:
     SDL_Renderer* renderer;
     TTF_Font* font{nullptr};
     bool mouseDownLastFrame{false};
+    MouseStateProvider mouseStateProvider;
 };
