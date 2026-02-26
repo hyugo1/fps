@@ -211,17 +211,19 @@ void Game::DrawTile(int x, int y) {
         // floor
         SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
         if (floorTexture) {
-            int texW = 0;
-            int texH = 0;
-            SDL_QueryTexture(floorTexture, nullptr, nullptr, &texW, &texH);
-            SDL_Rect srcRect = {0, 0, texW, texH};
-            if (texW > 2 && texH > 2) {
-                srcRect.x = 1;
-                srcRect.y = 1;
-                srcRect.w = texW - 2;
-                srcRect.h = texH - 2;
+            static SDL_Texture* cachedFloorTexture = nullptr;
+            static SDL_Rect cachedSrcRect = {0, 0, 0, 0};
+            if (cachedFloorTexture != floorTexture) {
+                int texW = 0;
+                int texH = 0;
+                SDL_QueryTexture(floorTexture, nullptr, nullptr, &texW, &texH);
+                cachedSrcRect = {0, 0, texW, texH};
+                if (texW > 2 && texH > 2) {
+                    cachedSrcRect = {1, 1, texW - 2, texH - 2};
+                }
+                cachedFloorTexture = floorTexture;
             }
-            SDL_RenderCopy(renderer, floorTexture, &srcRect, &rect);
+            SDL_RenderCopy(renderer, floorTexture, &cachedSrcRect, &rect);
         } else {
             SDL_SetRenderDrawColor(renderer, 60, 55, 50, 255); // floor fallback
             SDL_RenderFillRect(renderer, &rect);
