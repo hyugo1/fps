@@ -14,7 +14,8 @@ static void SpawnItems(
     int mapWidth,
     int mapHeight,
     int tileSize,
-    const std::function<bool(const Entity&, float, float)>& collisionFunc
+    const std::function<bool(const Entity&, float, float)>& collisionFunc,
+    float itemSizeScale = 0.5f
 ) {
     const float MIN_DISTANCE = 100.0f;
 
@@ -43,8 +44,8 @@ static void SpawnItems(
         ItemT item;
         item.x = spawnX;
         item.y = spawnY;
-        item.width = PLAYER_SIZE / 2;
-        item.height = PLAYER_SIZE / 2;
+        item.width = PLAYER_SIZE * itemSizeScale;
+        item.height = PLAYER_SIZE * itemSizeScale;
         items.push_back(item);
     }
 }
@@ -95,7 +96,7 @@ void SpawnHealthItems(
     int tileSize,
     const std::function<bool(const Entity&, float, float)>& collisionFunc
 ) {
-    SpawnItems(count, healthItems, player, mapWidth, mapHeight, tileSize, collisionFunc);
+    SpawnItems(count, healthItems, player, mapWidth, mapHeight, tileSize, collisionFunc, 1.0f);
 }
 
 void SpawnSpeedItems(
@@ -107,7 +108,7 @@ void SpawnSpeedItems(
     int tileSize,
     const std::function<bool(const Entity&, float, float)>& collisionFunc
 ) {
-    SpawnItems(count, speedItems, player, mapWidth, mapHeight, tileSize, collisionFunc);
+    SpawnItems(count, speedItems, player, mapWidth, mapHeight, tileSize, collisionFunc, 1.0f);
 }
 
 void SpawnWeaponItems(
@@ -148,8 +149,8 @@ void SpawnWeaponItems(
         WeaponItem item;
         item.x = spawnX;
         item.y = spawnY;
-        item.width = PLAYER_SIZE / 2;
-        item.height = PLAYER_SIZE / 2;
+        item.width = PLAYER_SIZE;
+        item.height = PLAYER_SIZE;
     
         if (currentLevel == 2) {
             item.type = Weapon::RIFLE;
