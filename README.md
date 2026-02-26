@@ -28,6 +28,7 @@ A top-down shooter built in C++ using SDL2, with multiple enemy types, weapon pr
 - `SDL/` — main game source code
 - `SDL/sprites/` — game assets (textures/sprites)
 - `SDL/build/` — local build output
+- `SDL/tests/` — C++ test files (weapon, enemy, player, menu)
 
 ## Build & Run (macOS)
 
@@ -51,6 +52,38 @@ cmake --build build -j
 cd build
 ./fps
 ```
+
+## Tests
+
+### Configure + build tests
+
+```bash
+cd SDL
+cmake -S . -B build
+cmake --build build -j4
+```
+
+### Run all tests
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+### Run one test target
+
+```bash
+ctest --test-dir build -R weapon_tests --output-on-failure
+ctest --test-dir build -R enemy_tests --output-on-failure
+ctest --test-dir build -R player_tests --output-on-failure
+ctest --test-dir build -R menu_tests --output-on-failure
+```
+
+### Current test targets
+
+- `weapon_tests` — weapon stats, cooldown/reload, spread, level mapping
+- `enemy_tests` — enemy movement/stats/difficulty/damage and score increment logic
+- `player_tests` — player collision damage + invulnerability behavior
+- `menu_tests` — menu click action mapping + click debounce behavior
 
 ## Controls
 
