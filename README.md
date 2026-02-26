@@ -3,7 +3,7 @@
 A top-down shooter built in C++ using SDL2, with multiple enemy types, weapon progression, pickups, levels, UI states, and sprite-based rendering.
 
 
-![Gameplay](assets/gameplay.png)
+![Gameplay](SDL/assets/gameplay.png)
 
 ## Features
 
