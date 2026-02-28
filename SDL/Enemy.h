@@ -37,10 +37,13 @@ class Enemy {
         static SDL_Texture* horizontalTexture;
         static SDL_Texture* verticalTexture;
         static SDL_Texture* smartTexture;
-        static SDL_Texture* currentEnemyTexture;
         static bool texturesLoaded;
         static void EnsureTexturesLoaded(SDL_Renderer* renderer);
         SDL_Rect DrawEnemyRectangle(float cameraX, float cameraY) const;
+        SDL_Texture* currentEnemyTexture = nullptr;
+        Uint8 baseR = 255;
+        Uint8 baseG = 255;
+        Uint8 baseB = 255;
         Entity body;
         float directionX;
         float directionY;

@@ -41,9 +41,7 @@ SDL_Texture* LoadTextureWithFallback(SDL_Renderer* renderer, const std::string& 
 SDL_Texture* Enemy::horizontalTexture = nullptr;
 SDL_Texture* Enemy::verticalTexture = nullptr;
 SDL_Texture* Enemy::smartTexture = nullptr;
-SDL_Texture* Enemy::currentEnemyTexture = nullptr;
 bool Enemy::texturesLoaded = false;
-Uint8 baseR = 255, baseG = 255, baseB = 255;
 
 // ---------------- Constructor ----------------
 Enemy::Enemy(float startX, float startY, EnemyType type, int level, float difficultyMultiplier) {
@@ -208,14 +206,14 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
 
 void Enemy::SetEnemyTextureAndColor() {
     if (character == horizontalEnemy) {
-        currentEnemyTexture = horizontalTexture;
-        baseR = 90; baseG = 252; baseB = 45;
+        this->currentEnemyTexture = horizontalTexture;
+        this->baseR = 90; this->baseG = 252; this->baseB = 45;
     } else if (character == verticalEnemy) {
-        currentEnemyTexture = verticalTexture;
-        baseR = 49; baseG = 90; baseB = 255;
+        this->currentEnemyTexture = verticalTexture;
+        this->baseR = 49; this->baseG = 90; this->baseB = 255;
     } else if (character == smartEnemy) {
-        currentEnemyTexture = smartTexture;
-        baseR = 194; baseG = 45; baseB = 252;
+        this->currentEnemyTexture = smartTexture;
+        this->baseR = 194; this->baseG = 45; this->baseB = 252;
     }
 
 }
@@ -232,14 +230,14 @@ void Enemy::RenderAliveEnemy(float cameraX, float cameraY, SDL_Renderer* rendere
     SDL_Rect enemyRect = DrawEnemyRectangle(cameraX, cameraY);
     SetEnemyTextureAndColor();
     float healthPercent = (float)health / maxHealth;
-    Uint8 r = baseR * healthPercent;
-    Uint8 g = baseG * healthPercent;
-    Uint8 b = baseB * healthPercent;
-    if (currentEnemyTexture) {
-        SDL_SetTextureColorMod(currentEnemyTexture, r, g, b);
-        SDL_SetTextureAlphaMod(currentEnemyTexture, 255);
-        SDL_SetTextureBlendMode(currentEnemyTexture, SDL_BLENDMODE_BLEND);
-        SDL_RenderCopy(renderer, currentEnemyTexture, nullptr, &enemyRect);
+    Uint8 r = this->baseR * healthPercent;
+    Uint8 g = this->baseG * healthPercent;
+    Uint8 b = this->baseB * healthPercent;
+    if (this->currentEnemyTexture) {
+        SDL_SetTextureColorMod(this->currentEnemyTexture, r, g, b);
+        SDL_SetTextureAlphaMod(this->currentEnemyTexture, 255);
+        SDL_SetTextureBlendMode(this->currentEnemyTexture, SDL_BLENDMODE_BLEND);
+        SDL_RenderCopy(renderer, this->currentEnemyTexture, nullptr, &enemyRect);
     } else {
         SDL_SetRenderDrawColor(renderer, r, g, b, 255);
         SDL_RenderFillRect(renderer, &enemyRect);
