@@ -38,6 +38,13 @@ SDL_Texture* LoadTextureWithFallback(SDL_Renderer* renderer, const std::string& 
 }
 }
 
+SDL_Texture* Enemy::horizontalTexture = nullptr;
+SDL_Texture* Enemy::verticalTexture = nullptr;
+SDL_Texture* Enemy::smartTexture = nullptr;
+SDL_Texture* Enemy::currentEnemyTexture = nullptr;
+bool Enemy::texturesLoaded = false;
+Uint8 baseR = 255, baseG = 255, baseB = 255;
+
 // ---------------- Constructor ----------------
 Enemy::Enemy(float startX, float startY, EnemyType type, int level, float difficultyMultiplier) {
     body.x = startX;
@@ -57,6 +64,16 @@ Enemy::Enemy(float startX, float startY, EnemyType type, int level, float diffic
     deathDuration = 0.25f;
     deathTimer = 0.0f;
     maxdistance = 200.0f + (level - 1) * 5.0f;
+}
+
+void Enemy::EnsureTexturesLoaded(SDL_Renderer* renderer) {
+    if (texturesLoaded || renderer == nullptr) {
+        return;
+    }
+    horizontalTexture = LoadTextureWithFallback(renderer, "sprites/enemy.png");
+    verticalTexture = LoadTextureWithFallback(renderer, "sprites/enemy2.png");
+    smartTexture = LoadTextureWithFallback(renderer, "sprites/enemy3.png");
+    texturesLoaded = true;
 }
 
 float Enemy::GetX() const {
@@ -89,12 +106,10 @@ bool Enemy::IsDead() const {
     return health <= 0;
 }
 
-// Returns true if enemy is in death animation, false if still alive or already removed
 bool Enemy::IsDying() const {
     return isDying;
 }
 
-// Returns true if enemy should be removed from game (after death animation finishes)
 bool Enemy::IsRemovable() const {
     return isDying && deathTimer <= 0.0f;
 }
@@ -104,128 +119,94 @@ int Enemy::GetHP() const {
 }
 
 int Enemy::GetMaxHP() const { 
-    return maxHealth; }
+    return maxHealth; 
+}
 
 float Enemy::GetSpeed() const {
     return speed;
 }
 
-void Enemy::Update(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {    
+bool Enemy::CheckIfDying(const UpdateContext& context) {
     if (isDying) {
-        deathTimer -= deltaTime;
+        deathTimer -= context.deltaTime;
         if (deathTimer < 0.0f) {
             deathTimer = 0.0f;
         }
-        return;
+        return true;
     }
+    return false;
+}
 
-    switch (character)
-    {
+void Enemy::UpdateMovementByType(const UpdateContext& context) {
+    switch (character) {
         case horizontalEnemy:
-            HorizontalMove(deltaTime, collisionFunc);
+            HorizontalMove(context);
             break;
-
         case verticalEnemy:
-            VerticalMove(deltaTime, collisionFunc);
+            VerticalMove(context);
             break;
-
         case smartEnemy:
-            SmartEnemy(deltaTime, collisionFunc, playerX, playerY);
+            SmartEnemy(context);
             break;
     }
 }
 
-void Enemy::HorizontalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
-    float nextX = body.x + directionX * speed * deltaTime;
-    if (collisionFunc(body, nextX, body.y)) {
+void Enemy::Update(const UpdateContext& context) {
+    if (CheckIfDying(context)) {
+        return;
+    }
+    UpdateMovementByType(context);
+}
+
+void Enemy::HorizontalMove(const UpdateContext& context) {
+    float nextX = body.x + directionX * speed * context.deltaTime;
+    if (context.collisionFunc(body, nextX, body.y)) {
         directionX = -directionX; // reverse
     } else {
         body.x = nextX;
     }
 }
 
-void Enemy::VerticalMove(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc) {
-    float nextY = body.y + directionY * speed * deltaTime;
-    if (collisionFunc(body, body.x, nextY)) {
+void Enemy::VerticalMove(const UpdateContext& context) {
+    float nextY = body.y + directionY * speed * context.deltaTime;
+    if (context.collisionFunc(body, body.x, nextY)) {
         directionY = -directionY; // reverse
     } else {
         body.y = nextY;
     }
 }
 
-void Enemy::SmartEnemy(float deltaTime, std::function<bool(const Entity&, float, float)> collisionFunc, float playerX, float playerY) {
-    float dx = playerX - body.x;
-    float dy = playerY - body.y;
-    float distance = sqrt(dx*dx + dy*dy);
+float Enemy::GetDistanceToPlayer(float dx, float dy) const {
+    return sqrt(dx*dx + dy*dy);
+}
+
+void Enemy::SmartEnemy(const UpdateContext& context) {
+    float dx = context.playerX - body.x;
+    float dy = context.playerY - body.y;
+    float distance = GetDistanceToPlayer(dx, dy);
     // distance check to prevent division by zero and only move if player is within maxdistance 
     if(distance > 0.0f && distance < maxdistance) { 
+        // Normalize the direction vector
         dx /= distance;
         dy /= distance;
-        float nextX = body.x + dx * speed * deltaTime;
-        float nextY = body.y + dy * speed * deltaTime;
-        if(!collisionFunc(body, nextX, body.y)) body.x = nextX;
-        if(!collisionFunc(body, body.x, nextY)) body.y = nextY;
+        // Move towards player
+        float nextX = body.x + dx * speed * context.deltaTime;
+        float nextY = body.y + dy * speed * context.deltaTime;
+        if(!context.collisionFunc(body, nextX, body.y)) body.x = nextX;
+        if(!context.collisionFunc(body, body.x, nextY)) body.y = nextY;
     }
 }
 
 void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
-    static SDL_Texture* horizontalTexture = nullptr;
-    static SDL_Texture* verticalTexture = nullptr;
-    static SDL_Texture* smartTexture = nullptr;
-    static bool texturesLoaded = false;
-
-    if (!texturesLoaded) {
-        horizontalTexture = LoadTextureWithFallback(renderer, "sprites/enemy.png");
-        verticalTexture = LoadTextureWithFallback(renderer, "sprites/enemy2.png");
-        smartTexture = LoadTextureWithFallback(renderer, "sprites/enemy3.png");
-        texturesLoaded = true;
-    }
-
-    // If isDying, render death animation instead of normal enemy
+    EnsureTexturesLoaded(renderer);
     if (isDying) {
-        float progress = 1.0f - (deathTimer / deathDuration);
-        if (progress < 0.0f) progress = 0.0f;
-        if (progress > 1.0f) progress = 1.0f;
-
-        int expandedSize = (int)(body.width * (1.0f + 0.7f * progress));
-        int centerX = (int)(body.x + body.width * 0.5f - cameraX);
-        int centerY = (int)(body.y + body.height * 0.5f - cameraY);
-        SDL_Rect deathRect = {
-            centerX - expandedSize / 2,
-            centerY - expandedSize / 2,
-            expandedSize,
-            expandedSize
-        };
-
-        Uint8 baseR = 255;
-        Uint8 baseG = 100;
-        Uint8 baseB = 30;
-        if (character == smartEnemy) {
-            baseR = 194; baseG = 45; baseB = 252;
-        } else if (character == horizontalEnemy) {
-            baseR = 90; baseG = 252; baseB = 45;
-        } else if (character == verticalEnemy) {
-            baseR = 49; baseG = 90; baseB = 255;
-        }
-
-        Uint8 alpha = (Uint8)(255.0f * (1.0f - progress));
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, baseR, baseG, baseB, alpha);
-        SDL_RenderFillRect(renderer, &deathRect);
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-        return;
+        RenderDeathEffect(cameraX, cameraY, renderer);
+    } else {
+        RenderAliveEnemy(cameraX, cameraY, renderer);
     }
+}
 
-    //draw enemy
-    SDL_Rect enemyRect = { 
-        (int)(body.x - cameraX), 
-        (int)(body.y - cameraY), 
-        (int)body.width, (int)body.height
-    };
-
-    SDL_Texture* currentEnemyTexture = nullptr;
-    Uint8 baseR = 255, baseG = 255, baseB = 255;
-
+void Enemy::SetEnemyTextureAndColor() {
     if (character == horizontalEnemy) {
         currentEnemyTexture = horizontalTexture;
         baseR = 90; baseG = 252; baseB = 45;
@@ -237,12 +218,23 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
         baseR = 194; baseG = 45; baseB = 252;
     }
 
-    float healthPercent = (float)health / maxHealth;
+}
 
+float Enemy::GetProgress() const {
+    float progress = 1.0f - (deathTimer / deathDuration);
+    if (progress < 0.0f) progress = 0.0f;
+    if (progress > 1.0f) progress = 1.0f;
+    return progress;
+}
+
+void Enemy::RenderAliveEnemy(float cameraX, float cameraY, SDL_Renderer* renderer) {
+    //draw enemy
+    SDL_Rect enemyRect = DrawEnemyRectangle(cameraX, cameraY);
+    SetEnemyTextureAndColor();
+    float healthPercent = (float)health / maxHealth;
     Uint8 r = baseR * healthPercent;
     Uint8 g = baseG * healthPercent;
     Uint8 b = baseB * healthPercent;
-
     if (currentEnemyTexture) {
         SDL_SetTextureColorMod(currentEnemyTexture, r, g, b);
         SDL_SetTextureAlphaMod(currentEnemyTexture, 255);
@@ -252,4 +244,41 @@ void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
         SDL_SetRenderDrawColor(renderer, r, g, b, 255);
         SDL_RenderFillRect(renderer, &enemyRect);
     }
+}
+
+void Enemy::RenderDeathEffect(float cameraX, float cameraY, SDL_Renderer* renderer) const {
+    float progress = GetProgress();
+        int expandedSize = (int)(body.width * (1.0f + 0.7f * progress));
+        int centerX = (int)(body.x + body.width * 0.5f - cameraX);
+        int centerY = (int)(body.y + body.height * 0.5f - cameraY);
+        SDL_Rect deathRect = {
+            centerX - expandedSize / 2,
+            centerY - expandedSize / 2,
+            expandedSize,
+            expandedSize
+        };
+        Uint8 baseR = 255;
+        Uint8 baseG = 100;
+        Uint8 baseB = 30;
+        if (character == smartEnemy) {
+            baseR = 194; baseG = 45; baseB = 252;
+        } else if (character == horizontalEnemy) {
+            baseR = 90; baseG = 252; baseB = 45;
+        } else if (character == verticalEnemy) {
+            baseR = 49; baseG = 90; baseB = 255;
+        }
+        Uint8 alpha = (Uint8)(255.0f * (1.0f - progress));
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, baseR, baseG, baseB, alpha);
+        SDL_RenderFillRect(renderer, &deathRect);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+}
+
+SDL_Rect Enemy::DrawEnemyRectangle(float cameraX, float cameraY) const {
+    return {
+        (int)(body.x - cameraX), 
+        (int)(body.y - cameraY), 
+        (int)body.width, (int)body.height
+    };
 }

@@ -2,6 +2,7 @@
 #include "Weapon.h"
 #include "CombatSystem.h"
 
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -10,6 +11,13 @@ int failures = 0;
 
 void Expect(bool condition, const char* message) {
     if (!condition) {
+        std::cerr << "[FAIL] " << message << std::endl;
+        failures++;
+    }
+}
+
+void ExpectNear(float actual, float expected, float tolerance, const char* message) {
+    if (std::fabs(actual - expected) > tolerance) {
         std::cerr << "[FAIL] " << message << std::endl;
         failures++;
     }
@@ -27,13 +35,15 @@ void TestVerticalEnemyMovement() {
 
     // simulate movement for 1 second
     float deltaTime = 1.0f;
-    enemies[0].Update(deltaTime, [](const Entity& entity, float nextX, float nextY) {
+    Enemy::CollisionFunc collisionFunc = [](const Entity& entity, float nextX, float nextY) {
         // simple collision function that treats the world bounds as walls
         if (nextX < 0 || nextX + entity.width > 800 || nextY < 0 || nextY + entity.height > 600) {
             return true; // collision with wall
         }
         return false; // no collision
-    }, player.x, player.y);
+    };
+    Enemy::UpdateContext context{deltaTime, player.x, player.y, collisionFunc};
+    enemies[0].Update(context);
 
     Expect(enemies[0].GetX() == 120.0f, "Vertical enemy should not move horizontally");
     Expect(enemies[0].GetY() != 100.0f, "Vertical enemy should move vertically");
@@ -49,13 +59,15 @@ void TestHorizontalEnemyMovement() {
 
     // simulate movement for 1 second
     float deltaTime = 1.0f;
-    enemies[0].Update(deltaTime, [](const Entity& entity, float nextX, float nextY) {
+    Enemy::CollisionFunc collisionFunc = [](const Entity& entity, float nextX, float nextY) {
         // simple collision function that treats the world bounds as walls
         if (nextX < 0 || nextX + entity.width > 800 || nextY < 0 || nextY + entity.height > 600) {
             return true; // collision with wall
         }
         return false; // no collision
-    }, player.x, player.y);
+    };
+    Enemy::UpdateContext context{deltaTime, player.x, player.y, collisionFunc};
+    enemies[0].Update(context);
 
     Expect(enemies[0].GetX() != 120.0f, "Horizontal enemy should move horizontally");
     Expect(enemies[0].GetY() == 100.0f, "Horizontal enemy should not move vertically");
@@ -66,7 +78,7 @@ void TestEnemySpawns() {
     enemies.push_back(Enemy(50.0f, 70.0f, Enemy::horizontalEnemy, 1, 1.0f));
     Expect(enemies.size() == 1, "Should have one enemy");
     Expect(enemies[0].GetHP() == 100, "Should have 100 health by default");
-    Expect(enemies[0].GetSpeed() == 100.0f, "Should have 100 speed by default");
+    ExpectNear(enemies[0].GetSpeed(), 100.0f, 0.001f, "Should have 100 speed by default");
     Expect(enemies[0].GetX() == 50.0f, "Enemy should be spawning at 50.0f X");
     Expect(enemies[0].GetY() == 70.0f, "Enemy should be spawning at 70.0f Y");
     
@@ -74,7 +86,7 @@ void TestEnemySpawns() {
     enemies.push_back(Enemy(70.0f, 50.0f, Enemy::verticalEnemy, 1, 1.0f));
     Expect(enemies.size() == 2, "Should have two enemies");
     Expect(enemies[1].GetHP() == 100, "Should have 100 health by default");
-    Expect(enemies[1].GetSpeed() == 100.0f, "Should have 100 speed by default");
+    ExpectNear(enemies[1].GetSpeed(), 100.0f, 0.001f, "Should have 100 speed by default");
     Expect(enemies[1].GetX() == 70.0f, "Enemy should be spawning at 70.0f X");
     Expect(enemies[1].GetY() == 50.0f, "Enemy should be spawning at 50.0f Y");
 
@@ -82,7 +94,7 @@ void TestEnemySpawns() {
     enemies.push_back(Enemy(50.0f, 50.0f, Enemy::verticalEnemy, 1, 1.0f));
     Expect(enemies.size() == 3, "Should have three enemies");
     Expect(enemies[2].GetHP() == 100, "Should have 100 health by default");
-    Expect(enemies[2].GetSpeed() == 100.0f, "Should have 100 speed by default");
+    ExpectNear(enemies[2].GetSpeed(), 100.0f, 0.001f, "Should have 100 speed by default");
     Expect(enemies[2].GetX() == 50.0f, "Enemy should be spawning at 50.0f X");
     Expect(enemies[2].GetY() == 50.0f, "Enemy should be spawning at 50.0f Y");
 
@@ -98,12 +110,12 @@ void TestEnemyLevelUp() {
     //lvl 2
     enemies.push_back(Enemy(50.0f, 50.0f, Enemy::horizontalEnemy, 2, 1.0f));
     Expect(enemies[0].GetHP() == 102, "should have 102 health on level 2");
-    Expect(enemies[0].GetSpeed() == 102.0f, "should have 102 speed on level 2");
+    ExpectNear(enemies[0].GetSpeed(), 102.0f, 0.001f, "should have 102 speed on level 2");
     
     //lvl 3
     enemies.push_back(Enemy(100.0f, 100.0f, Enemy::horizontalEnemy, 3, 1.0f));
     Expect(enemies[1].GetHP() == 104, "should have 104 health on level 3");
-    Expect(enemies[1].GetSpeed() == 104.0f, "should have 104 speed on level 3");
+    ExpectNear(enemies[1].GetSpeed(), 104.0f, 0.001f, "should have 104 speed on level 3");
 }
 
 void TestEnemyDifficulty() {
@@ -111,11 +123,11 @@ void TestEnemyDifficulty() {
     //easy
     enemies.push_back(Enemy(50.0f, 50.0f, Enemy::horizontalEnemy, 1, 0.8f));
     Expect(enemies[0].GetHP() == 100, "level 1 should keep base 100 health on easy");
-    Expect(enemies[0].GetSpeed() == 80.0f, "should have 80 speed on easy");
+    ExpectNear(enemies[0].GetSpeed(), 80.0f, 0.001f, "should have 80 speed on easy");
     //hard
     enemies.push_back(Enemy(100.0f, 100.0f, Enemy::horizontalEnemy, 1, 1.2f));
     Expect(enemies[1].GetHP() == 100, "level 1 should keep base 100 health on hard");
-    Expect(enemies[1].GetSpeed() == 120.0f, "should have 120 speed on hard");
+    ExpectNear(enemies[1].GetSpeed(), 120.0f, 0.001f, "should have 120 speed on hard");
 }
 
 
