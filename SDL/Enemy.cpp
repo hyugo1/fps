@@ -74,6 +74,22 @@ void Enemy::EnsureTexturesLoaded(SDL_Renderer* renderer) {
     texturesLoaded = true;
 }
 
+void Enemy::ReleaseTextures() {
+    if (horizontalTexture) {
+        SDL_DestroyTexture(horizontalTexture);
+        horizontalTexture = nullptr;
+    }
+    if (verticalTexture) {
+        SDL_DestroyTexture(verticalTexture);
+        verticalTexture = nullptr;
+    }
+    if (smartTexture) {
+        SDL_DestroyTexture(smartTexture);
+        smartTexture = nullptr;
+    }
+    texturesLoaded = false;
+}
+
 float Enemy::GetX() const {
     return body.x;
 }
@@ -196,6 +212,9 @@ void Enemy::SmartEnemy(const UpdateContext& context) {
 }
 
 void Enemy::Render(float cameraX, float cameraY, SDL_Renderer* renderer) {
+    if (renderer == nullptr) {
+        return;
+    }
     EnsureTexturesLoaded(renderer);
     if (isDying) {
         RenderDeathEffect(cameraX, cameraY, renderer);

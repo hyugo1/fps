@@ -20,6 +20,7 @@ class Enemy {
         EnemyType character;
         
         Enemy(float startX, float startY, EnemyType type, int level, float difficultyMultiplier);
+        static void ReleaseTextures();
 
         void Update(const UpdateContext& context);
         void Render(float cameraX, float cameraY, SDL_Renderer* renderer);

@@ -1515,6 +1515,7 @@ void Game::Clean() {
     SDL_DestroyTexture(healthTexture);
     SDL_DestroyTexture(speedTexture);
     SDL_DestroyTexture(weaponItemsTexture);
+    Enemy::ReleaseTextures();
     delete menu;
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
