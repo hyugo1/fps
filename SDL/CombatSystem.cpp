@@ -29,8 +29,9 @@ void UpdateEnemy(
         }
     }
 
+    Enemy::UpdateContext updateContext{deltaTime, player.x, player.y, collisionFunc};
     for (auto& enemy : enemies) {
-        enemy.Update(deltaTime, collisionFunc, player.x, player.y);
+        enemy.Update(updateContext);
     }
 
     enemies.erase(
