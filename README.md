@@ -85,6 +85,23 @@ ctest --test-dir build -R menu_tests --output-on-failure
 - `player_tests` — player collision damage + invulnerability behavior
 - `menu_tests` — menu click action mapping + click debounce behavior
 
+## Continuous Integration (GitHub Actions)
+
+This repo includes a CI workflow at `.github/workflows/ci.yml`.
+
+On every push and pull request, CI will:
+
+1. Install SDL2 dependencies on Ubuntu
+2. Configure with CMake (`cmake -S . -B build`)
+3. Build (`cmake --build build -j4`)
+4. Run tests (`ctest --test-dir build --output-on-failure`)
+
+To view results on GitHub:
+
+- Open repository page
+- Go to the **Actions** tab
+- Open the latest **CI** run
+
 ## Controls
 
 - `W A S D` — move
