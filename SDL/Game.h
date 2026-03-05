@@ -85,10 +85,14 @@ class Game {
         static const int mapHeight = 16;
         int map[mapWidth * mapHeight];
         int tileSize;
+        int tileHP[mapWidth * mapHeight];
         
         void DrawMap();
+        void DrawBreakingWall();
         void DrawTile(int x, int y);
+        void DamageTileAtWorld(float worldX, float worldY, int damage);
         bool DetectCollision(const Entity& entity, float nextX, float nextY);
+        void UpdateBreakingWallTime(float deltaTime);
         
         // ====== Camera ======
         int cameraX;
@@ -109,6 +113,13 @@ class Game {
         bool playerDying;
         float playerDeathTimer; // time left for player death animation, used to show death animation and prevent input during it
         float playerDeathDuration;
+        // ====== Breaking Wall Effects ======
+        struct WallBreakEffect {
+            float worldX, worldY;
+            float timer;
+        };
+        std::vector<WallBreakEffect> wallBreakEffects;
+        float breakingWallDuration;
         
         // ====== Game Systems ======
         void UpdateGame(float deltaTime, float dx, float dy);
@@ -141,6 +152,7 @@ class Game {
         void RenderGameScene();
         void RenderGame();
         void RenderLevelComplete();
+        void RenderBreakingWallEffect(float worldX, float worldY, float life01) const;
         void RenderGameOver();
 
         // ====== SDL ======
@@ -163,6 +175,7 @@ class Game {
         SDL_Texture* inventorySmgTexture;
         SDL_Texture* wallTexture;
         SDL_Texture* floorTexture;
+        SDL_Texture* brokenWallTexture;
         SDL_Texture* healthTexture;
         SDL_Texture* speedTexture;
         SDL_Texture* weaponItemsTexture;

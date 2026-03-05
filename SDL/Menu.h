@@ -30,7 +30,7 @@ public:
     if (TTF_Init() == -1) {
         printf("TTF_Init Error: %s\n", TTF_GetError());
     }
-    font = TTF_OpenFont("BitcountGridDouble.ttf", 50);
+    font = TTF_OpenFont("BitcountGridDouble.ttf", 28);
     if (!font) {
         printf("TTF_OpenFont Error: %s\n", TTF_GetError());
     }
@@ -174,7 +174,7 @@ private:
     }
 
     void BuildMainMenuButtonRects(int screenWidth, int screenHeight, SDL_Rect &startRect, SDL_Rect &optionsRect, SDL_Rect &exitRect) {
-        int buttonWidth = 200;
+        int buttonWidth = 260;
         int buttonHeight = 60;
         int spacing = 20;
         int totalHeight = 3 * buttonHeight + 2 * spacing;
@@ -187,7 +187,7 @@ private:
 
 
     void BuildOptionMenuButtonRects(int screenWidth, int screenHeight, SDL_Rect &easyRect, SDL_Rect &mediumRect, SDL_Rect &hardRect) {
-        int buttonWidth = 200;
+        int buttonWidth = 260;
         int buttonHeight = 60;
         int spacing = 20;
         int totalHeight = 3 * buttonHeight + 2 * spacing;
