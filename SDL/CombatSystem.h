@@ -46,7 +46,8 @@ void UpdateBullets(
     float deltaTime,
     std::vector<Bullet>& bullets,
     std::vector<Enemy>& enemies,
-    const std::function<bool(const Entity&, float, float)>& collisionFunc
+    const std::function<bool(const Entity&, float, float)>& collisionFunc,
+    const std::function<void(float, float, int)>& onWallHit
 );
 
 }

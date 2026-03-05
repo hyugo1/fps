@@ -110,21 +110,13 @@ void UpdateBullets(
     float deltaTime,
     std::vector<Bullet>& bullets,
     std::vector<Enemy>& enemies,
-    const std::function<bool(const Entity&, float, float)>& collisionFunc
+    const std::function<bool(const Entity&, float, float)>& collisionFunc,
+    const std::function<void(float, float, int)>& onWallHit
 ) {
     for (auto& bullet : bullets) {
         bullet.x += bullet.dx * bullet.speed * deltaTime;
         bullet.y += bullet.dy * bullet.speed * deltaTime;
     }
-
-    bullets.erase(
-        std::remove_if(bullets.begin(), bullets.end(),
-            [&](Bullet& bullet) {
-                Entity bulletEntity{bullet.x, bullet.y, 5, 5};
-                return collisionFunc(bulletEntity, bullet.x, bullet.y);
-            }),
-        bullets.end()
-    );
 
     for (auto& bullet : bullets) {
         Entity bulletEntity{bullet.x, bullet.y, 5, 5};
@@ -133,18 +125,32 @@ void UpdateBullets(
             if (!enemy.IsDead() && AABB(bulletEntity, enemy.getBody())) {
                 enemy.TakeDamage(bullet.damage);
                 bullet.toDelete = true;
+                break; // bullet only hits one enemy
             }
         }
     }
-
+    
+    bullets.erase(
+        std::remove_if(bullets.begin(), bullets.end(),
+            [](const Bullet& b) { return b.toDelete; }),
+        bullets.end()
+    );
     bullets.erase(
         std::remove_if(bullets.begin(), bullets.end(),
             [&](const Bullet& bullet) {
                 Entity bulletEntity{bullet.x, bullet.y, 5, 5};
-                return bullet.toDelete || collisionFunc(bulletEntity, bullet.x, bullet.y);
+                if (collisionFunc(bulletEntity, bullet.x, bullet.y)) {
+                    // Call wall hit effect with bullet position and damage
+                    if (onWallHit) {
+                        onWallHit(bullet.x + bulletEntity.width * 0.5f,
+                                bullet.y + bulletEntity.height * 0.5f,
+                                bullet.damage);
+                        return true;
+                    }
+                }
+                return false;
             }),
         bullets.end()
     );
 }
-
 }
