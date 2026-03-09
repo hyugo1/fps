@@ -145,8 +145,8 @@ void UpdateBullets(
                         onWallHit(bullet.x + bulletEntity.width * 0.5f,
                                 bullet.y + bulletEntity.height * 0.5f,
                                 bullet.damage);
-                        return true;
-                    }
+                            }
+                    return true;
                 }
                 return false;
             }),
