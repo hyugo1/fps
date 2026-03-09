@@ -79,6 +79,7 @@ Game::Game() {
     wallTexture = nullptr;
     floorTexture = nullptr;
     healthTexture = nullptr;
+    brokenWallTexture = nullptr;
     speedTexture = nullptr;
     weaponItemsTexture = nullptr;
     currentState = MENU;
@@ -111,6 +112,7 @@ Game::Game() {
     playerDying = false;
     playerDeathTimer = 0.0f;
     playerDeathDuration = 0.6f;
+    breakingWallDuration = 0.6f;
     LoadHighScore();
     cameraX = screenWidth / 2;
     cameraY = screenHeight / 2;
@@ -130,12 +132,21 @@ Game::Game() {
         for(int x = 0; x < mapWidth; x++) {
             bool nearPlayerSpawn = std::abs(x - playerTileX) <= 1 && std::abs(y - playerTileY) <= 1;
 
-            if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1)
+            if(x == 0 || y == 0 || x == mapWidth-1 || y == mapHeight-1) {
                 map[y * mapWidth + x] = 1; // border wall
-            else if(!nearPlayerSpawn && rand() % 10 == 0)
+                tileHP[y*mapWidth + x] = 0;
+            }
+            else if(!nearPlayerSpawn && rand() % 10 == 0) {
                 map[y * mapWidth + x] = 2; // random wall
-            else
+                tileHP[y*mapWidth + x] = 0;
+            }
+            else if(!nearPlayerSpawn && rand() % 7 == 0) {      
+                map[y * mapWidth + x] = 3; // obstructable objects like a wall.
+                tileHP[y*mapWidth + x] = 40;
+            } else {
                 map[y * mapWidth + x] = 0; // floor
+                tileHP[y*mapWidth + x] = 0;
+            }
         }
     }
     //enemies
@@ -165,6 +176,7 @@ int Game::getLevel() {
 Uint32 Game::getLastTime() {
     return lastTime;
 }
+
 float Game::getDeltaTime() {
     Uint32 currentTime = SDL_GetTicks();
     float deltaTime = (currentTime - lastTime) / 1000.0f;
@@ -239,11 +251,23 @@ void Game::DrawTile(int x, int y) {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
+    if (tile == 3) {
+        // render obstructable objects
+        SDL_Rect rect = {x*tileSize - cameraX, y*tileSize - cameraY, tileSize, tileSize};
+        if (brokenWallTexture) {
+            SDL_RenderCopy(renderer, brokenWallTexture, nullptr, &rect);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 80, 90, 110, 255); //wall fallback
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
 }
 
 // return true if collision, false if no collision
 bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
-    const float collisionInset = 6.0f;
+    // Use a smaller inset for tiny entities (like 5x5 bullets)
+    const float minHalfSize = std::min(entity.width, entity.height) * 0.5f;
+    const float collisionInset = std::min(6.0f, std::max(0.0f, minHalfSize - 0.5f));
     float x = nextX + collisionInset;
     float y = nextY + collisionInset;
     float width = entity.width - collisionInset * 2.0f;
@@ -264,8 +288,12 @@ bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
                 tileY < 0 || tileY >= mapHeight)
                 return true;
             int tile = map[tileY * mapWidth + tileX];
-            if (tile != 0)
+            if (tile == 1 || tile == 2)
                 return true;
+
+            if (tile == 3 && tileHP[tileY * mapWidth + tileX] > 0) {
+                return true;
+            }
         }
     }
     return false;
@@ -332,6 +360,7 @@ bool Game::Init() {
     inventorySmgTexture = LoadTextureWithFallback(renderer, "sprites/smg.png");
     wallTexture = LoadTextureWithFallback(renderer, "sprites/brickwall4.png");
     floorTexture = LoadTextureWithFallback(renderer, "sprites/floor5.png");
+    brokenWallTexture = LoadTextureWithFallback(renderer, "sprites/brokenWall.png");
     healthTexture = LoadTextureWithFallback(renderer, "sprites/heart.png");
     speedTexture = LoadTextureWithFallback(renderer, "sprites/speedbooster.png");
     weaponItemsTexture = LoadTextureWithFallback(renderer, "sprites/chest.png");
@@ -439,7 +468,6 @@ void Game::UpdatePlayingGameState(float deltaTime) {
     HandleReloadInput();
     UpdateGame(deltaTime, dx, dy);
 }
-
 
 void Game::HandlePauseInput() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
@@ -634,6 +662,7 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         if (playerDying) {
            return;
         }
+        UpdateBreakingWallTime(deltaTime);
         UpdateCollision(deltaTime, dx, dy);
         UpdateHealthItems();
         UpdateSpeedItems(deltaTime);
@@ -647,6 +676,17 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdateBullets(deltaTime);
         HandleInventoryInput();
 
+}
+
+void Game::UpdateBreakingWallTime(float deltaTime) {
+    for (auto& eff : wallBreakEffects) {
+        eff.timer = std::max(0.0f, eff.timer - deltaTime);
+    }
+    wallBreakEffects.erase(
+        std::remove_if(wallBreakEffects.begin(), wallBreakEffects.end(),
+            [](const WallBreakEffect& e){ return e.timer <= 0.0f; }),
+        wallBreakEffects.end()
+    );
 }
 
 void Game::UpdateWeaponCooldown(float deltaTime) {
@@ -667,6 +707,9 @@ void Game::UpdateBullets(float deltaTime) {
         enemies,
         [this](const Entity& ent, float x, float y) {
             return DetectCollision(ent, x, y);
+        },
+        [this](float x, float y, int damage) {
+            DamageTileAtWorld(x, y, damage);
         }
     );
 
@@ -970,6 +1013,37 @@ void Game::UpdateGameOver() {
     }
 }
 
+void Game::DamageTileAtWorld(float worldX, float worldY, int damage) {
+    int tileX = (int)(worldX / tileSize);
+    int tileY = (int)(worldY / tileSize);
+    if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight)
+        return;
+    
+    int index = tileY * mapWidth + tileX;
+    if (map[index] != 3) return;
+
+    // Push a new effect (or reset existing one at same tile)
+    float wx = tileX * tileSize + tileSize / 2.0f;
+    float wy = tileY * tileSize + tileSize / 2.0f;
+    bool found = false;
+    for (auto& eff : wallBreakEffects) {
+        if ((int)eff.worldX == (int)wx && (int)eff.worldY == (int)wy) {
+            eff.timer = breakingWallDuration;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        wallBreakEffects.push_back({wx, wy, breakingWallDuration});
+    }
+
+    tileHP[index] -= damage;
+    if (tileHP[index] <= 0) {
+        tileHP[index] = 0;
+        map[index] = 0; // turn into floor
+    }
+}
+
 double Game::Clamp(double a, double minimum, double maximum) {
     if (a < minimum) return minimum;
     if (a > maximum) return maximum;
@@ -1042,6 +1116,13 @@ void Game::RenderGame() {
     SDL_RenderPresent(renderer);
 }
 
+void Game::DrawBreakingWall() {
+    for (const auto& eff : wallBreakEffects) {
+        float life01 = eff.timer / breakingWallDuration;
+        RenderBreakingWallEffect(eff.worldX, eff.worldY, life01);
+    }
+}
+
 void Game::RenderGameScene() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -1049,6 +1130,7 @@ void Game::RenderGameScene() {
 
     //draw map
     DrawMap();
+    DrawBreakingWall();
 
     //draw player
     SDL_Rect playerRect = { 
@@ -1201,7 +1283,6 @@ void Game::RenderGameScene() {
         }
     }
 
-
     // draw weapon items
     for (auto &w : weaponItems) {
         if (!w.collected) {
@@ -1272,7 +1353,6 @@ void Game::PlayerHP() {
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); 
     SDL_RenderFillRect(renderer, &hpBarFront);
 }
-
 
 void Game::EnemyHP() {
     for (auto &e : enemies) {
@@ -1439,6 +1519,27 @@ void Game::ResetHighScore() {
     }
 }
 
+void Game::RenderBreakingWallEffect(float worldX, float worldY, float life01) const {
+    int size = (int)(tileSize * (1.0f + 0.7f * (1.0f - life01)));
+    int centerX = (int)(worldX - cameraX);
+    int centerY = (int)(worldY - cameraY);
+    SDL_Rect breakingWallRect = {
+        centerX - size / 2,
+        centerY - size / 2,
+        size,
+        size
+    };
+    Uint8 baseR = 255;
+    Uint8 baseG = 200;
+    Uint8 baseB = 80;
+    Uint8 alpha = (Uint8)(255.0f * std::clamp(life01, 0.0f, 1.0f));
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, baseR, baseG, baseB, alpha);
+    SDL_RenderFillRect(renderer, &breakingWallRect);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+
 void Game::RenderGameOver() {
     //clear screen to black
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -1512,6 +1613,7 @@ void Game::Clean() {
     SDL_DestroyTexture(inventorySmgTexture);
     SDL_DestroyTexture(wallTexture);
     SDL_DestroyTexture(floorTexture);
+    SDL_DestroyTexture(brokenWallTexture);
     SDL_DestroyTexture(healthTexture);
     SDL_DestroyTexture(speedTexture);
     SDL_DestroyTexture(weaponItemsTexture);

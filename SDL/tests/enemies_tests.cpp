@@ -148,7 +148,8 @@ void TestEnemyTakesDamageFromBullets() {
         0.2f, // move bullet enough to reach enemy
         bullets,
         enemies,
-        [](const Entity&, float, float) { return false; } // no wall collision in test
+        [](const Entity&, float, float) { return false; }, 
+        [](float, float, int) { /* no wall hit effect needed for this test */ }
     );
 
     int hpAfter = enemies[0].GetHP();
