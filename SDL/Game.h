@@ -33,6 +33,8 @@ class Game {
         GameState currentState;
         GameState previousState;
         int currentLevel;
+        float levelTimer;
+        void UpdateTimer(float deltaTime);
         int getLevel();
         Uint32 getLastTime();
         GameState getCurrentState();
@@ -133,6 +135,7 @@ class Game {
         void UpdateCollision(float deltaTime, float dx, float dy);
         void PlayerHP();
         void DisplayAmmo();
+        void DisplayTimer();
         void DisplayScore();
         void LoadHighScore();
         void SaveHighScore();

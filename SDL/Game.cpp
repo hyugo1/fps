@@ -97,6 +97,7 @@ Game::Game() {
     shootCooldown = 0.0f;
     screenHeight = 600;
     screenWidth = 800;
+    levelTimer = 100.0f;
     score = 0;
     highScore = 0;
     highScoreResetInGameOver = false;
@@ -662,6 +663,7 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         if (playerDying) {
            return;
         }
+        UpdateTimer(deltaTime);
         UpdateBreakingWallTime(deltaTime);
         UpdateCollision(deltaTime, dx, dy);
         UpdateHealthItems();
@@ -676,6 +678,14 @@ void Game::UpdateGame(float deltaTime, float dx, float dy) {
         UpdateBullets(deltaTime);
         HandleInventoryInput();
 
+}
+
+void Game::UpdateTimer(float deltaTime) {
+    levelTimer -= deltaTime;
+    if (levelTimer <= 0.0f) {
+        levelTimer = 0.0f;
+        currentState = GAME_OVER;
+    }
 }
 
 void Game::UpdateBreakingWallTime(float deltaTime) {
@@ -1229,6 +1239,7 @@ void Game::RenderGameScene() {
     PlayerHP();
     DisplayAmmo();
     DisplayScore();
+    DisplayTimer();
     
     //draw enemies
     for (auto &e : enemies)
@@ -1453,6 +1464,45 @@ void Game::DisplayAmmo() {
         }
     }
 }
+
+void Game::DisplayTimer() {
+    static TTF_Font* timerFont = TTF_OpenFont("BitcountGridDouble.ttf", 18);
+    if (!timerFont) {
+        timerFont = TTF_OpenFont("SDL/BitcountGridDouble.ttf", 18);
+        if (!timerFont) {
+            timerFont = TTF_OpenFont("../SDL/BitcountGridDouble.ttf", 18);
+        }
+        if (!timerFont) {
+            return;
+        }
+    }
+    char timerText[64];
+    std::snprintf(timerText, sizeof(timerText), "Time: %.1f", levelTimer);
+
+    SDL_Color textColor = {255, 255, 255, 255};
+    SDL_Surface* timerSurface = TTF_RenderText_Solid(timerFont, timerText, textColor);
+    if (!timerSurface) {
+        return;
+    }
+
+    SDL_Texture* timerTexture = SDL_CreateTextureFromSurface(renderer, timerSurface);
+    if (!timerTexture) {
+        SDL_FreeSurface(timerSurface);
+        return;
+    }
+
+    const int padding = 10;
+    SDL_Rect bgRect = {screenWidth - timerSurface->w - padding - 16, padding - 4, timerSurface->w + 12, timerSurface->h + 8};
+    SDL_SetRenderDrawColor(renderer, 40, 40, 40, 200);
+    SDL_RenderFillRect(renderer, &bgRect);
+
+    SDL_Rect textRect = {screenWidth - timerSurface->w - padding - 16, padding, timerSurface->w, timerSurface->h};
+    SDL_RenderCopy(renderer, timerTexture, nullptr, &textRect);
+
+    SDL_DestroyTexture(timerTexture);
+    SDL_FreeSurface(timerSurface);
+}
+
 
 void Game::DisplayScore() {
     static TTF_Font* scoreFont = TTF_OpenFont("BitcountGridDouble.ttf", 18);
