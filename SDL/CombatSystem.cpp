@@ -78,22 +78,17 @@ void UpdatePlayerCollision(
 }
 
 void DetectMouseClick(
-    int cameraX,
-    int cameraY,
     const Entity& player,
     std::vector<Weapon>& playerWeapons,
     int currentWeaponIndex,
-    std::vector<Bullet>& bullets
+    std::vector<Bullet>& bullets,
+    float worldMouseX,
+    float worldMouseY,
+    bool firePressed
 ) {
-    int mouseX, mouseY;
-    Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
-
-    if (!(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+    if (!firePressed) {
         return;
     }
-
-    float worldMouseX = mouseX + cameraX;
-    float worldMouseY = mouseY + cameraY;
 
     if (!playerWeapons.empty()) {
         playerWeapons[currentWeaponIndex].Fire(

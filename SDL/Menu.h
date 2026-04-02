@@ -64,7 +64,8 @@ public:
     MainMenuAction UpdateMainMenu(int screenWidth, int screenHeight) { 
         int mouseX = 0;
         int mouseY = 0;
-        Uint32 mouseState = mouseStateProvider(&mouseX, &mouseY);
+        Uint32 mouseState = mouseStateProvider(nullptr, nullptr);
+        GetLogicalMousePosition(mouseX, mouseY);
         bool leftDown = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
         SDL_Rect startRect;
         SDL_Rect optionsRect;
@@ -89,7 +90,7 @@ public:
     void RenderMainMenu(int screenWidth, int screenHeight) {
         int mouseX = 0;
         int mouseY = 0;
-        mouseStateProvider(&mouseX, &mouseY);
+        GetLogicalMousePosition(mouseX, mouseY);
         SDL_Rect startRect;
         SDL_Rect optionsRect;
         SDL_Rect exitRect;
@@ -103,7 +104,8 @@ public:
     OptionMenuAction UpdateOptionsMenu(int screenWidth, int screenHeight) { 
         int mouseX = 0;
         int mouseY = 0;
-        Uint32 mouseState = mouseStateProvider(&mouseX, &mouseY);
+        Uint32 mouseState = mouseStateProvider(nullptr, nullptr);
+        GetLogicalMousePosition(mouseX, mouseY);
         bool leftDown = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
         SDL_Rect easyRect;
         SDL_Rect mediumRect;
@@ -127,7 +129,7 @@ public:
     void RenderOptionsMenu(int screenWidth, int screenHeight) {
         int mouseX = 0;
         int mouseY = 0;
-        mouseStateProvider(&mouseX, &mouseY);
+        GetLogicalMousePosition(mouseX, mouseY);
         SDL_Rect easyRect;
         SDL_Rect mediumRect;
         SDL_Rect hardRect;
@@ -138,6 +140,18 @@ public:
     }
 
 private:
+     void GetLogicalMousePosition(int& mouseX, int& mouseY) {
+        int windowMouseX = 0;
+        int windowMouseY = 0;
+        mouseStateProvider(&windowMouseX, &windowMouseY);
+
+        float logicalMouseX = 0.0f;
+        float logicalMouseY = 0.0f;
+        SDL_RenderWindowToLogical(renderer, windowMouseX, windowMouseY, &logicalMouseX, &logicalMouseY);
+        mouseX = (int)logicalMouseX;
+        mouseY = (int)logicalMouseY;
+    }
+
     bool PointsAreOnSquare(int x, int y, const SDL_Rect &rect) {
         return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
     }

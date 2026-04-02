@@ -53,6 +53,18 @@ SDL_Texture* LoadTextureWithFallback(SDL_Renderer* renderer, const std::string& 
     }
     return nullptr;
 }
+
+void GetLogicalMousePosition(SDL_Renderer* renderer, int& mouseX, int& mouseY) {
+    int windowMouseX = 0;
+    int windowMouseY = 0;
+    SDL_GetMouseState(&windowMouseX, &windowMouseY);
+
+    float logicalMouseX = 0.0f;
+    float logicalMouseY = 0.0f;
+    SDL_RenderWindowToLogical(renderer, windowMouseX, windowMouseY, &logicalMouseX, &logicalMouseY);
+    mouseX = (int)logicalMouseX;
+    mouseY = (int)logicalMouseY;
+}
 }
 
 // ---------------- Constructor ----------------
@@ -98,6 +110,7 @@ Game::Game() {
     screenHeight = 600;
     screenWidth = 800;
     levelTimer = 100.0f;
+    bonusTime = 0;
     score = 0;
     highScore = 0;
     highScoreResetInGameOver = false;
@@ -301,6 +314,8 @@ bool Game::DetectCollision(const Entity& entity, float nextX, float nextY) {
 }
 
 bool Game::Init() {
+    const int kLogicalWidth = 800;
+    const int kLogicalHeight = 600;
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -311,7 +326,7 @@ bool Game::Init() {
     window = SDL_CreateWindow("Game Development",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         screenWidth, screenHeight,
-        SDL_WINDOW_SHOWN);
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
     if (!window) {
         printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
@@ -326,6 +341,10 @@ bool Game::Init() {
         SDL_Quit();
         return false;
     }
+
+    // Keep gameplay coordinates fixed and upscale output when window grows.
+    SDL_RenderSetLogicalSize(renderer, kLogicalWidth, kLogicalHeight);
+    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
 
     if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
         printf("IMG_Init Error: %s\n", IMG_GetError());
@@ -614,9 +633,7 @@ void Game::UpdateEnemy(float deltaTime) {
 
     int enemiesAfter = (int)enemies.size();// check for meele attacks by player
     int kills = enemiesBefore - enemiesAfter;
-    if (kills > 0) {
-        score += kills * (100 * currentLevel);
-    }
+    AddKillScore(kills);
 
     if (levelComplete) {
         currentState = LEVEL_COMPLETE;
@@ -723,11 +740,19 @@ void Game::UpdateBullets(float deltaTime) {
         }
     );
 
-    int enemiesAfter = (int)enemies.size(); // check for bullets killing enemies
+    int enemiesAfter = (int)enemies.size();
     int kills = enemiesBefore - enemiesAfter;
-    if (kills > 0) {
-        score += kills * (100 * currentLevel);
+    AddKillScore(kills);
+}
+
+void Game::AddKillScore(int kills) {
+    if (kills <= 0) {
+        return;
     }
+
+    float timeLeft = std::max(0.0f, levelTimer);
+    bonusTime = (int)timeLeft;
+    score += (int)((timeLeft / 2.0f) * kills);
 }
 
 void Game::UpdateHealthItems() {
@@ -841,21 +866,24 @@ void Game::UpdateWeaponItems() {
 void Game::DetectMouseClick() {
     int mouseX = 0;
     int mouseY = 0;
-    SDL_GetMouseState(&mouseX, &mouseY);
+    Uint32 mouseState = SDL_GetMouseState(nullptr, nullptr);
+    bool firePressed = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+    GetLogicalMousePosition(renderer, mouseX, mouseY);
+    float worldMouseX = mouseX + cameraX;
+    float worldMouseY = mouseY + cameraY;
 
     size_t bulletsBefore = bullets.size();
     CombatSystem::DetectMouseClick(
-        cameraX,
-        cameraY,
         player,
         playerWeapons,
         currentWeaponIndex,
-        bullets
+        bullets,
+        worldMouseX,
+        worldMouseY,
+        firePressed
     );
     // If a shot was fired, start recoil animation
     if (bullets.size() > bulletsBefore) {
-        float worldMouseX = mouseX + cameraX;
-        float worldMouseY = mouseY + cameraY;
         float aimDx = worldMouseX - (player.x + player.width * 0.5f);
         float aimDy = worldMouseY - (player.y + player.height * 0.5f);
         float aimLen = std::sqrt(aimDx * aimDx + aimDy * aimDy);
@@ -871,6 +899,8 @@ void Game::UpdateLevelComplete() {
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     if (keystate[SDL_SCANCODE_RETURN]) {
         currentLevel++;
+        levelTimer = 100.0f;
+        bonusTime = 0;
         enemies.clear();
         bullets.clear();
         speedItems.clear();
@@ -950,6 +980,8 @@ void Game::UpdateGameOver() {
         
         // Reset game state
         currentLevel = 1;
+        levelTimer = 100.0f;
+        bonusTime = 0;
         player.x = screenWidth / 2;
         player.y = screenHeight / 2;
         enemies.clear();

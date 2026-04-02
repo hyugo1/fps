@@ -34,12 +34,13 @@ void UpdatePlayerCollision(
 );
 
 void DetectMouseClick(
-    int cameraX,
-    int cameraY,
     const Entity& player,
     std::vector<Weapon>& playerWeapons,
     int currentWeaponIndex,
-    std::vector<Bullet>& bullets
+    std::vector<Bullet>& bullets,
+    float worldMouseX,
+    float worldMouseY,
+    bool firePressed
 );
 
 void UpdateBullets(

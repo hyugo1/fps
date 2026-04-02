@@ -137,6 +137,7 @@ class Game {
         void DisplayAmmo();
         void DisplayTimer();
         void DisplayScore();
+        void AddKillScore(int kills);
         void LoadHighScore();
         void SaveHighScore();
         void ResetHighScore();
@@ -186,6 +187,7 @@ class Game {
         Uint32 lastTime;
         int screenWidth;
         int screenHeight;
+        int bonusTime;
         int score;
         int highScore;
         bool highScoreResetInGameOver;
