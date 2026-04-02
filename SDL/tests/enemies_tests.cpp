@@ -168,7 +168,7 @@ void TestScoreIncrements() {
     int playerMeleeDamage = 100;
 
     int score = 0;
-    int currentLevel = 1;
+    float levelTimer = 100.0f;
     int enemiesBefore = (int)enemies.size();
     bool levelComplete = false;
     float deltaTime = 0.3f;
@@ -186,11 +186,11 @@ void TestScoreIncrements() {
     int enemiesAfter = (int)enemies.size();
     int kills = enemiesBefore - enemiesAfter;
     if (kills > 0) {
-        score += kills * (100 * currentLevel);
+        score += (int)((levelTimer / 2.0f) * kills);
     }
 
     Expect(kills == 1, "One enemy should be removed after lethal melee hit");
-    Expect(score == 100, "Score should increase by exactly 100 for one kill at level 1");
+    Expect(score == 50, "Score should increase based on remaining time for one kill");
     Expect(levelComplete, "Level should complete when all enemies are removed");
 }
 }
